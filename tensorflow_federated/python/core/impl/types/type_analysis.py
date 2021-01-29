@@ -290,7 +290,8 @@ def is_sum_compatible(type_spec: computation_types.Type) -> bool:
   """
   py_typecheck.check_type(type_spec, computation_types.Type)
   if type_spec.is_tensor():
-    return is_numeric_dtype(type_spec.dtype)
+    return is_numeric_dtype(
+        type_spec.dtype) and type_spec.shape.is_fully_defined()
   elif type_spec.is_struct():
     return all(
         is_sum_compatible(v) for _, v in structure.iter_elements(type_spec))

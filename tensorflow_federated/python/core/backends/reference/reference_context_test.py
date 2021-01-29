@@ -752,23 +752,6 @@ class ReferenceContextTest(test_case.TestCase, parameterized.TestCase):
         str(foo.type_signature), '(<int32,int32>* -> <int32,int32>)')
     self.assertEqual(str(foo([[1, 2], [3, 4], [5, 6]])), '[9, 12]')
 
-  def test_sequence_sum_with_unspecified_shape_tensor(self):
-
-    @computations.federated_computation(
-        computation_types.SequenceType(
-            computation_types.TensorType(tf.int32, shape=[None])))
-    def foo(x):
-      return intrinsics.sequence_sum(x)
-
-    self.assertEqual(str(foo.type_signature), '(int32[?]* -> int32[?])')
-    self.assertEqual(
-        str(
-            foo([
-                np.array([1, 2], dtype=np.int32),
-                np.array([3, 4], dtype=np.int32),
-                np.array([5, 6], dtype=np.int32)
-            ])), '[ 9 12]')
-
   def test_federated_collect_with_list_of_integers(self):
 
     @computations.federated_computation(

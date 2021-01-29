@@ -85,6 +85,7 @@ def _create_stateless_int_dataset_reduction_iterative_process():
 
 def _create_stateless_int_vector_unknown_dim_dataset_reduction_iterative_process(
 ):
+  # Tests handling client data of unknown shape and summing to fixed shape.
 
   @computations.tf_computation()
   def make_zero():
@@ -98,7 +99,8 @@ def _create_stateless_int_vector_unknown_dim_dataset_reduction_iterative_process
       computation_types.SequenceType(
           computation_types.TensorType(tf.int64, shape=[None])))
   def reduce_dataset(x):
-    return x.reduce(tf.cast(tf.constant([0]), tf.int64), lambda x, y: x + y)
+    return x.reduce(
+        tf.cast(tf.constant([0]), tf.int64), lambda x, y: x + tf.reduce_sum(y))
 
   @computations.federated_computation(
       computation_types.FederatedType(
@@ -288,7 +290,7 @@ class ConstructDatasetsOnClientsIterativeProcessTest(absltest.TestCase):
             client_data=computation_types.FederatedType(
                 tf.string, placement_literals.CLIENTS)),
         computation_types.FederatedType(
-            computation_types.TensorType(tf.int64, shape=[None]),
+            computation_types.TensorType(tf.int64, shape=[1]),
             placement_literals.SERVER))
 
     new_iterproc = iterative_process_compositions.compose_dataset_computation_with_iterative_process(

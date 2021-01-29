@@ -200,6 +200,8 @@ class IsSumCompatibleTest(parameterized.TestCase):
   @parameterized.named_parameters([
       ('tensor_type_bool', computation_types.TensorType(tf.bool)),
       ('tensor_type_string', computation_types.TensorType(tf.string)),
+      ('partially_defined_shape',
+       computation_types.TensorType(tf.int32, shape=[None])),
       ('tuple_type', computation_types.StructType([tf.int32, tf.bool])),
       ('sequence_type', computation_types.SequenceType(tf.int32)),
       ('placement_type', computation_types.PlacementType()),
