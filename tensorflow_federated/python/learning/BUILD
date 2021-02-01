@@ -64,10 +64,11 @@ py_cpu_gpu_test(
         ":federated_averaging",
         ":keras_utils",
         ":model_examples",
+        ":model_update_aggregator",
         ":model_utils",
         "//tensorflow_federated/python/common_libs:test_utils",
         "//tensorflow_federated/python/core/api:test_case",
-        "//tensorflow_federated/python/core/backends/native:execution_contexts",
+        "//tensorflow_federated/python/core/backends/test:execution_contexts",
         "//tensorflow_federated/python/learning/framework:dataset_reduce",
     ],
 )

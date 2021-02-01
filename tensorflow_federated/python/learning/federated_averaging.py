@@ -243,7 +243,7 @@ def build_federated_averaging_process(
 
   if isinstance(model_update_aggregation_factory,
                 factory.UnweightedAggregationFactory):
-    if client_weighting is not None:
+    if client_weighting is None:
       client_weighting = ClientWeighting.UNIFORM
     elif client_weighting is not ClientWeighting.UNIFORM:
       raise ValueError('Cannot use non-uniform client weighting with '

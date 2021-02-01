@@ -21,10 +21,11 @@ import tensorflow as tf
 
 from tensorflow_federated.python.common_libs import test_utils
 from tensorflow_federated.python.core.api import test_case
-from tensorflow_federated.python.core.backends.native import execution_contexts
+from tensorflow_federated.python.core.backends.test import execution_contexts
 from tensorflow_federated.python.learning import federated_averaging
 from tensorflow_federated.python.learning import keras_utils
 from tensorflow_federated.python.learning import model_examples
+from tensorflow_federated.python.learning import model_update_aggregator
 from tensorflow_federated.python.learning import model_utils
 from tensorflow_federated.python.learning.framework import dataset_reduce
 
@@ -298,7 +299,31 @@ class FederatedAveragingModelTffTest(test_case.TestCase,
       self.assertAllClose(state.model.trainable,
                           iterative_process.get_model_weights(state).trainable)
 
+  @parameterized.named_parameters([
+      ('robust', model_update_aggregator.robust_aggregator),
+      ('dp', lambda: model_update_aggregator.dp_aggregator(1e-3, 3)),
+      ('compression', model_update_aggregator.compression_aggregator),
+      ('secure', model_update_aggregator.secure_aggregator),
+  ])
+  @test_utils.skip_test_for_multi_gpu
+  def test_recommended_aggregations_execute(self, default_aggregation):
+    process = federated_averaging.build_federated_averaging_process(
+        model_fn=model_examples.LinearRegression,
+        client_optimizer_fn=lambda: tf.keras.optimizers.SGD(learning_rate=0.1),
+        model_update_aggregation_factory=default_aggregation())
+
+    ds = tf.data.Dataset.from_tensor_slices(
+        collections.OrderedDict(
+            x=[[1.0, 2.0], [3.0, 4.0]],
+            y=[[5.0], [6.0]],
+        )).batch(2)
+
+    num_clients = 3
+    state = process.initialize()
+    state, metrics = process.next(state, [ds] * num_clients)
+    self.assertNotEmpty(metrics['aggregation'])
+
 
 if __name__ == '__main__':
-  execution_contexts.set_local_execution_context()
+  execution_contexts.set_test_execution_context()
   test_case.main()
