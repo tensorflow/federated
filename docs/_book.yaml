@@ -27,6 +27,8 @@ upper_tabs:
         path: /federated/tutorials/simulations
       - title: "TFF for Federated Learning Research: Model and Update Compression"
         path: /federated/tutorials/tff_for_federated_learning_research_compression
+      - title: "Loading Your Own Federated Dataset From CSV"
+        path: /federated/tutorials/loading_your_own_dataset_from_csv
     - name: Guide
       contents:
       # The first item serves as the landing page and transitively leads to all the remaining

@@ -3,6 +3,7 @@ package(default_visibility = ["//visibility:private"])
 licenses(["notice"])
 
 exports_files([
+    "loading_your_own_dataset_from_csv.ipynb",
     "building_your_own_federated_learning_algorithm.ipynb",
     "custom_federated_algorithms_1.ipynb",
     "custom_federated_algorithms_2.ipynb",
