@@ -67,10 +67,13 @@ def infer_type(arg: Any) -> Optional[computation_types.Type]:
            ('nested_row_splits', infer_type(arg.nested_row_splits))),
           tf.RaggedTensor)
     elif isinstance(arg, tf.SparseTensor):
+      shape_marker = computation_types.marker_type_from_static_shape(
+          arg.shape, '`tf.SparseTensor`')
       return computation_types.StructWithPythonType(
           (('indices', infer_type(arg.indices)),
            ('values', infer_type(arg.values)),
-           ('dense_shape', infer_type(arg.dense_shape))), tf.SparseTensor)
+           ('dense_shape', infer_type(arg.dense_shape)),
+           ('static_dense_shape_marker', shape_marker)), tf.SparseTensor)
     else:
       return computation_types.TensorType(arg.dtype.base_dtype, arg.shape)
   elif isinstance(arg, TF_DATASET_REPRESENTATION_TYPES):
@@ -302,11 +305,14 @@ def type_to_tf_structure(type_spec: computation_types.Type):
             flat_values_spec=tf.TensorSpec(flat_values.shape,
                                            flat_values.dtype))
       elif container_type is tf.SparseTensor:
-        # We can't generally infer the shape from the type of the tensors, but
-        # we *can* infer the rank based on the shapes of `indices` or
-        # `dense_shape`.
-        if (type_spec.indices.shape is not None and
-            type_spec.indices.shape.dims[1] is not None):
+        if type_spec.static_dense_shape_marker.shape.dims is not None:
+          shape = computation_types.static_shape_from_marker_type(
+              type_spec.static_dense_shape_marker)
+        elif (type_spec.indices.shape is not None and
+              type_spec.indices.shape.dims[1] is not None):
+          # We can't generally infer the shape from the type of the tensors, but
+          # we *can* infer the rank based on the shapes of `indices` or
+          # `dense_shape`.
           rank = type_spec.indices.shape.dims[1]
           shape = tf.TensorShape([None] * rank)
         elif (type_spec.dense_shape.shape is not None and
@@ -456,13 +462,26 @@ def type_to_py_container(value, type_spec):
       elements.append((elem_name, value))
 
   if (py_typecheck.is_named_tuple(container_type) or
-      py_typecheck.is_attrs(container_type) or
-      container_type is tf.SparseTensor):
+      py_typecheck.is_attrs(container_type)):
     # The namedtuple and attr.s class constructors cannot interpret a list of
     # (name, value) tuples; instead call constructor using kwargs. Note that
     # these classes already define an order of names internally, so order does
     # not matter.
     return container_type(**dict(elements))
+  elif container_type is tf.SparseTensor:
+    elements = dict(elements)
+    indices = elements['indices']
+    values = elements['values']
+    dense_shape = elements['dense_shape']
+    # If the type contains a static `dense_shape`, we discard the provided
+    # 'dense_shape' value and instead pass in the shape as a tensor constant,
+    # allowing it to be visible statically.
+    static_shape = computation_types.static_shape_from_marker_type(
+        type_spec.static_dense_shape_marker)
+    if static_shape is not None:
+      dense_shape = tf.constant(static_shape.dims, tf.int64,
+                                [len(static_shape.dims)])
+    return tf.SparseTensor(indices, values, dense_shape)
   elif container_type is tf.RaggedTensor:
     elements = dict(elements)
     return tf.RaggedTensor.from_nested_row_splits(elements['flat_values'],

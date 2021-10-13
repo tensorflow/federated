@@ -78,6 +78,7 @@ class SparseTensorTest(absltest.TestCase):
     @tff.tf_computation(sparse_tensor_spec)
     def check_sparse(sparse):
       self.assertIsInstance(sparse, tf.SparseTensor)
+      self.assertEqual(sparse.shape, tf.TensorShape([5]))
       return sparse
 
     out = check_sparse(create_sparse())

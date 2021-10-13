@@ -272,6 +272,9 @@ class InferTypeTest(parameterized.TestCase, test_case.TestCase):
             ('indices', computation_types.TensorType(tf.int64, [1, 1])),
             ('values', computation_types.TensorType(tf.int32, [1])),
             ('dense_shape', computation_types.TensorType(tf.int64, [1])),
+            ('static_dense_shape_marker',
+             computation_types.marker_type_from_static_shape(
+                 tf.TensorShape([5]), 'N/A')),
         ], tf.SparseTensor))
 
 
@@ -714,11 +717,15 @@ class TypeToPyContainerTest(test_case.TestCase):
         ('indices', [[1]]),
         ('values', [2]),
         ('dense_shape', [5]),
+        ('static_dense_shape_marker', []),
     ])
     value_type = computation_types.StructWithPythonType([
         ('indices', computation_types.TensorType(tf.int64, [1, 1])),
         ('values', computation_types.TensorType(tf.int32, [1])),
         ('dense_shape', computation_types.TensorType(tf.int64, [1])),
+        ('static_dense_shape_marker',
+         computation_types.marker_type_from_static_shape(
+             tf.TensorShape([5]), 'N/A')),
     ], tf.SparseTensor)
     result = type_conversions.type_to_py_container(value, value_type)
     self.assertIsInstance(result, tf.SparseTensor)
@@ -726,6 +733,7 @@ class TypeToPyContainerTest(test_case.TestCase):
     self.assertAllEqual(result.indices[0], [1])
     self.assertAllEqual(result.values, [2])
     self.assertAllEqual(result.dense_shape, [5])
+    self.assertAllEqual(result.shape.dims, [5])
 
 
 class StructureFromTensorTypeTreeTest(test_case.TestCase):

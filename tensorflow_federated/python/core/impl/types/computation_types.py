@@ -1084,19 +1084,48 @@ def to_type(spec) -> Type:
                                  ('nested_row_splits', nested_row_splits_type)],
                                 tf.RaggedTensor)
   elif isinstance(spec, tf.SparseTensorSpec):
-    dtype = spec.dtype
-    shape = spec.shape
+    rank = None if spec.shape is None else spec.shape.rank
+    shape_marker = marker_type_from_static_shape(spec.shape,
+                                                 '`tf.SparseTensorSpec`')
     unknown_num_values = None
-    rank = None if shape is None else shape.rank
     return StructWithPythonType([
         ('indices', TensorType(tf.int64, [unknown_num_values, rank])),
-        ('values', TensorType(dtype, [unknown_num_values])),
+        ('values', TensorType(spec.dtype, [unknown_num_values])),
         ('dense_shape', TensorType(tf.int64, [rank])),
+        ('static_dense_shape_marker', shape_marker),
     ], tf.SparseTensor)
   else:
     raise TypeError(
         'Unable to interpret an argument of type {} as a type spec.'.format(
             py_typecheck.type_string(type(spec))))
+
+
+def marker_type_from_static_shape(shape: Optional[tf.TensorShape],
+                                  kind_for_error: str) -> Type:
+  """Stores an optional `tf.TensorShape` in a zero-sized marker type."""
+  arbitrary_dtype = tf.int32
+  if (shape is None or shape.dims is None or
+      all(d is None for d in shape.dims)):
+    return TensorType(arbitrary_dtype, tf.TensorShape(None))
+  for dim in shape.dims:
+    if dim is None:
+      raise TypeError(
+          f'Attempted to use a {kind_for_error} with partially-known '
+          f'dimensions in TFF.\nDimensions: {shape.dims}\n'
+          f'{kind_for_error}s passed to TFF must have either fully dynamic '
+          'or fully static shape.')
+  # Prepend a `0` dimension to ensure that no memory is actually used for the
+  # marker tensor.
+  return TensorType(arbitrary_dtype, [0] + shape.dims)
+
+
+def static_shape_from_marker_type(
+    marker_type: Type) -> Optional[tf.TensorShape]:
+  """Gets optional `tf.TensorShape` stored `_marker-type_from_static_shape`."""
+  if marker_type.shape.dims is None:
+    return None
+  # Remove the `0` dimension we added above.
+  return tf.TensorShape(marker_type.shape.dims[1:])
 
 
 def _to_type_from_attrs(spec) -> Type:

@@ -277,6 +277,8 @@ class GraphUtilsTest(test_case.TestCase):
               ('indices', computation_types.TensorType(tf.int64, [1, 1])),
               ('values', computation_types.TensorType(tf.int32, [1])),
               ('dense_shape', computation_types.TensorType(tf.int64, [1])),
+              ('static_dense_shape_marker',
+               computation_types.marker_type_from_static_shape([5], 'N/A')),
           ], tf.SparseTensor))
 
   @test_utils.graph_mode_test

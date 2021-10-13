@@ -210,10 +210,19 @@ def capture_result_from_graph(result, graph):
           functools.partial(
               computation_types.StructWithPythonType,
               container_type=tf.RaggedTensor))
-    elif isinstance(result, tf.SparseTensor):
+    if isinstance(result, tf.SparseTensor):
+      # We append `static_dense_shape_marker` as a field to the type in order
+      # to allow `dense_shape` to be tracked statically.
+      shape_marker = computation_types.marker_type_from_static_shape(
+          result.shape, '`tf.SparseTensor`')
+      shape_marker_instance = tf.constant([],
+                                          dtype=shape_marker.dtype,
+                                          shape=shape_marker.shape)
       name_value_pairs = (('indices', result.indices),
                           ('values', result.values), ('dense_shape',
-                                                      result.dense_shape))
+                                                      result.dense_shape),
+                          ('static_dense_shape_marker', shape_marker_instance))
+
       return _get_bindings_for_elements(
           name_value_pairs, graph,
           functools.partial(

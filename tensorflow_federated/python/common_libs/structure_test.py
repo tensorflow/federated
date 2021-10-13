@@ -466,7 +466,10 @@ class StructTest(tf.test.TestCase):
   def test_from_container_sparse_tensor(self):
     x = structure.from_container(
         tf.SparseTensor(indices=[[1]], values=[2], dense_shape=[5]))
-    self.assertEqual(str(x), '<indices=[[1]],values=[2],dense_shape=[5]>')
+    self.assertEqual(
+        str(x),
+        '<indices=[[1]],values=[2],dense_shape=[5],static_dense_shape_marker=[]>'
+    )
 
   def test_to_container_recursive(self):
 

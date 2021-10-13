@@ -467,6 +467,27 @@ def map_structure(fn, *structures: Struct):
   return pack_sequence_as(structures[0], s)
 
 
+def _sparse_tensor_shape_marker_instance(value: tf.SparseTensor) -> tf.Tensor:
+  """Creates an instance of a shape-marker tensor."""
+  # See `computation_types.marker_type_from_static_shape` for details.
+  # Note that some of the implementation here is shared with that function.
+  # This is necessary in order to prevent a cyclic dependency between this file
+  # (`structure.py`) and that one (`computation_types.py`).
+  shape = value.shape
+  arbitrary_dtype = tf.int32
+  if (shape is None or shape.dims is None or
+      all(d is None for d in shape.dims)):
+    return tf.constant([], dtype=arbitrary_dtype, shape=tf.TensorShape(None))
+  for dim in shape.dims:
+    if dim is None:
+      raise TypeError(
+          f'Attempted to use a `tf.SparseTensor` with partially-known '
+          f'dimensions in TFF.\nDimensions: {shape.dims}\n'
+          f'`tf.SparseTensor`s passed to TFF must have either fully dynamic '
+          'or fully static shape.')
+  return tf.constant([], dtype=arbitrary_dtype, shape=([0] + shape.dims))
+
+
 def from_container(value: Any, recursive=False) -> Struct:
   """Creates an instance of `Struct` from a Python container.
 
@@ -545,8 +566,12 @@ def from_container(value: Any, recursive=False) -> Struct:
                      ('nested_row_splits', nested_row_splits)])
     elif isinstance(value, tf.SparseTensor):
       # Each element is a tensor
+      # We append `static_dense_shape_marker` as a field to the type in order
+      # to allow `dense_shape` to be tracked statically.
+      shape_marker_instance = _sparse_tensor_shape_marker_instance(value)
       return Struct([('indices', value.indices), ('values', value.values),
-                     ('dense_shape', value.dense_shape)])
+                     ('dense_shape', value.dense_shape),
+                     ('static_dense_shape_marker', shape_marker_instance)])
     elif must_be_container:
       raise TypeError('Unable to convert a Python object of type {} into '
                       'an `Struct`. Object: {}'.format(
