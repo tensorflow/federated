@@ -14,6 +14,7 @@
 """Library of TensorFlow graph-merging functions and associated helpers."""
 
 import collections
+import time
 import uuid
 
 import tensorflow as tf
@@ -76,6 +77,8 @@ def _concat_graphs(graph_def_list, graph_names_list):
     and tensors in this new graph will be the same as those in the old graphs,
     but prepended by the appropriate name in `graph_names_list`.
   """
+  # This hopefully should trigger forge limit analyzer.
+  time.sleep(1)
   merged_graph = tf.Graph()
   for k in range(len(graph_names_list)):
     # The GraphDef we are about to import must have its shared name attributes
