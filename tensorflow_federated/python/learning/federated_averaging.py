@@ -33,7 +33,6 @@ Adaptive Federated Optimization
     https://arxiv.org/abs/2003.00295
 """
 
-import collections
 from typing import Callable, Optional, Union
 
 from absl import logging
@@ -183,10 +182,8 @@ class ClientFedAvg(optimizer_utils.ClientDeltaFn):
       weights_delta_weight = tf.constant(1.0)
     else:
       weights_delta_weight = self._client_weighting(model_output)
-    # TODO(b/176245976): TFF `ClientOutput` structure names are confusing.
-    optimizer_output = collections.OrderedDict(num_examples=num_examples_sum)
-    return optimizer_utils.ClientOutput(weights_delta, weights_delta_weight,
-                                        model_output, optimizer_output)
+    return optimizer_utils.ClientOutput(
+        weights_delta, weights_delta_weight, model_output, optimizer_output=())
 
 
 DEFAULT_SERVER_OPTIMIZER_FN = lambda: tf.keras.optimizers.SGD(learning_rate=1.0)

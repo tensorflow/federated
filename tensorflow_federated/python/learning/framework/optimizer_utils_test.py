@@ -78,9 +78,8 @@ class DummyClientDeltaFn(optimizer_utils.ClientDeltaFn):
         weights_delta=trainable_weights_delta,
         weights_delta_weight=client_weight,
         model_output=model_output,
-        optimizer_output=collections.OrderedDict([
-            ('num_examples', client_weight),
-        ]))
+        # We avoid using a `None` as it is unsupported in graph serialization
+        optimizer_output=())
 
 
 @computations.tf_computation(tf.int32)
@@ -326,9 +325,7 @@ class ModelDeltaOptimizerTest(test_case.TestCase, parameterized.TestCase):
             aggregation=aggregate_metrics,
             train=collections.OrderedDict(
                 loss=computation_types.TensorType(tf.float32),
-                num_examples=computation_types.TensorType(tf.int32)),
-            stat=collections.OrderedDict(
-                num_examples=computation_types.TensorType(tf.float32))),
+                num_examples=computation_types.TensorType(tf.int32))),
         placements.SERVER)
     self.assert_types_equivalent(
         computation_types.FunctionType(
@@ -630,10 +627,7 @@ class ModelDeltaOptimizerTest(test_case.TestCase, parameterized.TestCase):
             # The average mean squared loss is computed at the initial model
             # weights (i.e., at zero weights): 0.5*(25+36)/2 = 15.25.
             loss=15.25,
-            num_examples=6),
-        # `DummyClientDeltaFn` returns 1.0 as the `optimizer_output` value at
-        # each client. `stat` is a federated sum of this client value.
-        stat=collections.OrderedDict(num_examples=3.0))
+            num_examples=6))
     self.assertAllEqual(expected_outputs, outputs)
 
   @parameterized.named_parameters([('tff_optimizer', _tff_optimizer),
@@ -737,10 +731,7 @@ class ModelDeltaOptimizerTest(test_case.TestCase, parameterized.TestCase):
             loss_per_client_max=15.25,
             loss_per_client_min=0.5,
             num_examples_per_client_max=2,
-            num_examples_per_client_min=1),
-        # `DummyClientDeltaFn` returns 1.0 as the `optimizer_output` value at
-        # each client. `stat` is a federated sum of this client value.
-        stat=collections.OrderedDict(num_examples=2.0))
+            num_examples_per_client_min=1))
     self.assertAllClose(expected_outputs, outputs)
 
 

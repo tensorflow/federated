@@ -450,14 +450,11 @@ def _build_one_round_computation(
                     aggregation_output.state, broadcast_output.state))
     aggregated_outputs = metrics_aggregation_computation(
         client_outputs.model_output)
-    optimizer_outputs = intrinsics.federated_sum(
-        client_outputs.optimizer_output)
     measurements = intrinsics.federated_zip(
         collections.OrderedDict(
             broadcast=broadcast_output.measurements,
             aggregation=aggregation_output.measurements,
-            train=aggregated_outputs,
-            stat=optimizer_outputs))
+            train=aggregated_outputs))
     return new_server_state, measurements
 
   return one_round_computation

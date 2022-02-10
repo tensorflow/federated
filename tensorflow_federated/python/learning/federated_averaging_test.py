@@ -19,6 +19,7 @@ tensorflow_federated/python/tests/federated_averaging_integration_test.py.
 """
 
 import collections
+import functools
 import itertools
 from unittest import mock
 
@@ -30,12 +31,14 @@ from tensorflow_federated.python.common_libs import test_utils
 from tensorflow_federated.python.core.api import computations
 from tensorflow_federated.python.core.api import test_case
 from tensorflow_federated.python.core.impl.types import computation_types
+from tensorflow_federated.python.core.test import static_assert
 from tensorflow_federated.python.learning import client_weight_lib
 from tensorflow_federated.python.learning import federated_averaging
 from tensorflow_federated.python.learning import model_examples
 from tensorflow_federated.python.learning import model_update_aggregator
 from tensorflow_federated.python.learning import model_utils
 from tensorflow_federated.python.learning.framework import dataset_reduce
+from tensorflow_federated.python.learning.metrics import aggregator
 from tensorflow_federated.python.learning.optimizers import sgdm
 
 
@@ -97,7 +100,6 @@ class FederatedAveragingClientTest(test_case.TestCase, parameterized.TestCase):
         np.linalg.norm(client_outputs.weights_delta, axis=-1), expected_norm)
     if weighted:
       self.assertEqual(client_outputs.weights_delta_weight, 8.0)
-    self.assertEqual(client_outputs.optimizer_output['num_examples'], 8)
     if use_metrics_aggregator:
       self.assertDictContainsSubset({'num_examples': 8},
                                     client_outputs.model_output)
@@ -211,6 +213,17 @@ class FederatedAveragingTest(test_case.TestCase, parameterized.TestCase):
         metrics_aggregator=aggregate_nothing)
     self.assertEqual(fed_avg.next.type_signature.result[1].member.train,
                      computation_types.to_type(collections.OrderedDict()))
+
+  def test_no_unsecure_aggregation_with_secure_aggregator(self):
+    model_fn = functools.partial(
+        model_examples.LinearRegression, use_metrics_aggregator=True)
+    fed_avg = federated_averaging.build_federated_averaging_process(
+        model_fn,
+        client_optimizer_fn=lambda: tf.keras.optimizers.SGD(1.0),
+        model_update_aggregation_factory=model_update_aggregator
+        .secure_aggregator(),
+        metrics_aggregator=aggregator.secure_sum_then_finalize)
+    static_assert.assert_not_contains_unsecure_aggregation(fed_avg.next)
 
 if __name__ == '__main__':
   test_case.main()
