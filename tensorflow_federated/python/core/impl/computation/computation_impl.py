@@ -18,6 +18,8 @@
 # information.
 """Defines the implementation of the base Computation interface."""
 
+import tensorflow as tf
+
 from tensorflow_federated.proto.v0 import computation_pb2 as pb
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.core.api import computation_base
@@ -26,6 +28,11 @@ from tensorflow_federated.python.core.impl.computation import function_utils
 from tensorflow_federated.python.core.impl.context_stack import context_stack_base
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import type_serialization
+
+
+class InvokedInsideTfFunctionError(RuntimeError):
+  """An error on calls to `ConcreteComputation` inside a `tf.function`."""
+  pass
 
 
 class ConcreteComputation(computation_base.Computation):
@@ -113,6 +120,12 @@ class ConcreteComputation(computation_base.Computation):
     return self._type_signature
 
   def __call__(self, *args, **kwargs):
+    if tf.inside_function():
+      raise InvokedInsideTfFunctionError(
+          'Attempted to call a TensorFlow Federated computation from inside '
+          'of a `tf.function`. This is not supported: consider moving the call '
+          'outside of the `tf.function` wrapper.')
+
     context = self._context_stack.current
     arg = function_utils.pack_args(self._type_signature.parameter, args, kwargs,
                                    context)

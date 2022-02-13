@@ -24,6 +24,23 @@ from tensorflow_federated.python.core.impl.types import type_serialization
 
 class ComputationImplTest(test_case.TestCase):
 
+  def test_raises_when_invoked_from_tf_function(self):
+    # TODO(b/201214708): Consider removing this error once it is possible to
+    # invoke a `tff.tf_computation` from inside a `tf.function` without issue.
+    computation_type = computation_types.FunctionType(tf.int32, tf.int32)
+    computation_proto = pb.Computation(
+        type=type_serialization.serialize_type(computation_type),
+        data=pb.Data(uri='placeholder_data_uri'))
+    computation = computation_impl.ConcreteComputation(
+        computation_proto, context_stack_impl.context_stack)
+
+    @tf.function
+    def some_annotated_function():
+      with self.assertRaises(computation_impl.InvokedInsideTfFunctionError):
+        computation()
+
+    some_annotated_function()
+
   def test_something(self):
     # TODO(b/113112108): Revise these tests after a more complete implementation
     # is in place.
