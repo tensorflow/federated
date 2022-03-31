@@ -97,7 +97,7 @@ class EmbedTfCompTest(test_case.TestCase, parameterized.TestCase):
 
     @computations.tf_computation([('a', tf.int32), ('b', tf.int32)])
     def comp(a, b):
-      return {'sum': a + b}
+      return collections.OrderedDict(sum=a + b)
 
     fn = eager_tf_executor.embed_tensorflow_computation(
         computation_impl.ConcreteComputation.get_proto(comp))

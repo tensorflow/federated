@@ -125,14 +125,16 @@ def build_sum_merge_with_first_arg_computation(
     merge_result_type: computation_types.Type) -> computation_base.Computation:
   """Assumes original_arg_type is federated, and compatible with summing with merge_result_type."""
 
-  @computations.tf_computation(original_arg_type[0].member, merge_result_type)
+  @computations.tf_computation(original_arg_type['server_arg'].member,
+                               merge_result_type)
   def add(x, y):
     return x + y
 
   @computations.federated_computation(
       original_arg_type, computation_types.at_server(merge_result_type))
   def after_merge(original_arg, merge_result):
-    return intrinsics.federated_map(add, (original_arg[0], merge_result))
+    return intrinsics.federated_map(add,
+                                    (original_arg['server_arg'], merge_result))
 
   return after_merge
 
@@ -222,8 +224,7 @@ class MergeableCompFormTest(absltest.TestCase):
                                             merge.type_signature.result))
     def after_merge_with_sum(original_arg, merged_arg):
       del merged_arg  # Unused
-      # Second element in original arg is the clients-placed value.
-      return intrinsics.federated_sum(original_arg[1])
+      return intrinsics.federated_sum(original_arg['client_arg'])
 
     with self.assertRaisesRegex(
         mergeable_comp_execution_context.AfterMergeStructureError,

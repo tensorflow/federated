@@ -280,7 +280,8 @@ def federated_sample(value, max_num_samples=100):
   @computations.tf_computation(accumulator_type, value.type_signature.member)
   def accumulate(current, value):
     """Accumulates samples through concatenation."""
-    rands = fed_concat_expand_dims(current.rands, tf.random.uniform(shape=()))
+    rands = fed_concat_expand_dims(current['rands'],
+                                   tf.random.uniform(shape=()))
     # TODO(b/121288403): Special-casing anonymous tuple shouldn't be needed.
     if member_type.is_struct():
       accumulators = structure.map_structure(
@@ -306,7 +307,7 @@ def federated_sample(value, max_num_samples=100):
 
   @computations.tf_computation(accumulator_type)
   def report(value):
-    return value.accumulators
+    return value['accumulators']
 
   return intrinsics.federated_aggregate(value, zeros, accumulate, merge, report)
 

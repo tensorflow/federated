@@ -343,7 +343,7 @@ class FunctionUtilsTest(test_case.TestCase, parameterized.TestCase):
       ('str_tuple_with_named_type', lambda *args: str(args),
        [('x', tf.int32), ('y', tf.int32)], False,
        structure.Struct([('x', 5), ('y', 6)]),
-       '(Struct([(\'x\', 5), (\'y\', 6)]),)'),
+       '(OrderedDict([(\'x\', 5), (\'y\', 6)]),)'),
       ('str_ing', lambda x: str(x),  # pylint: disable=unnecessary-lambda
        [tf.int32], None, structure.Struct([(None, 10)]), '[10]'),
   )

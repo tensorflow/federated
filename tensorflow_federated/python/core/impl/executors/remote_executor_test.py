@@ -369,7 +369,7 @@ class RemoteExecutorIntegrationTest(parameterized.TestCase):
 
     @computations.federated_computation(tf.int32)
     def baz(x):
-      return bar(foo(x).A, foo(x).B)
+      return bar(foo(x)['A'], foo(x)['B'])
 
     result = _invoke(context.executor, baz, 100)
     self.assertEqual(result, 230)

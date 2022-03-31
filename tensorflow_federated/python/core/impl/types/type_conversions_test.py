@@ -184,24 +184,13 @@ class InferTypeTest(parameterized.TestCase, test_case.TestCase):
     self.assertIsInstance(t, computation_types.StructWithPythonType)
     self.assertIs(t.python_container, test_named_tuple)
 
-  def test_with_dict(self):
-    v1 = {
+  def test_with_dict_raises(self):
+    value = {
         'a': 1,
         'b': 2.0,
     }
-    inferred_type = type_conversions.infer_type(v1)
-    self.assertEqual(str(inferred_type), '<a=int32,b=float32>')
-    self.assertIsInstance(inferred_type, computation_types.StructWithPythonType)
-    self.assertIs(inferred_type.python_container, dict)
-
-    v2 = {
-        'b': 2.0,
-        'a': 1,
-    }
-    inferred_type = type_conversions.infer_type(v2)
-    self.assertEqual(str(inferred_type), '<a=int32,b=float32>')
-    self.assertIsInstance(inferred_type, computation_types.StructWithPythonType)
-    self.assertIs(inferred_type.python_container, dict)
+    with self.assertRaisesRegex(TypeError, 'Unsupported mapping type dict'):
+      type_conversions.infer_type(value)
 
   def test_with_ordered_dict(self):
     t = type_conversions.infer_type(
@@ -532,6 +521,14 @@ class TypeFromTensorsTest(test_case.TestCase):
 
 
 class TypeToPyContainerTest(test_case.TestCase):
+
+  def test_struct_only_skips_non_struct(self):
+    value = 'stand-in'
+    type_signature = computation_types.at_clients(tf.int32)
+    with self.assertRaises(TypeError):
+      type_conversions.type_to_py_container(value, type_signature)
+    type_conversions.type_to_py_container(
+        value, type_signature, struct_only=True)
 
   def test_tuple_passthrough(self):
     value = (1, 2.0)

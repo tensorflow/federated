@@ -396,7 +396,7 @@ def _unpack_arg(arg_types, kwarg_types, arg) -> _Arguments:
               name, expected_type, actual_type))
     if type_analysis.is_struct_with_py_container(element_value, expected_type):
       element_value = type_conversions.type_to_py_container(
-          element_value, expected_type)
+          element_value, expected_type, struct_only=True)
     kwargs[name] = element_value
   return args, kwargs
 
@@ -407,8 +407,8 @@ def _ensure_arg_type(parameter_type, arg) -> _Arguments:
   if not parameter_type.is_assignable_from(arg_type):
     raise TypeError('Expected an argument of type {}, found {}.'.format(
         parameter_type, arg_type))
-  if type_analysis.is_struct_with_py_container(arg, parameter_type):
-    arg = type_conversions.type_to_py_container(arg, parameter_type)
+  arg = type_conversions.type_to_py_container(
+      arg, parameter_type, struct_only=True)
   return [arg], {}
 
 

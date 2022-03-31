@@ -287,7 +287,10 @@ def capture_result_from_graph(
     if isinstance(result, collections.OrderedDict):
       name_value_pairs = result.items()
     else:
-      name_value_pairs = sorted(result.items())
+      raise UnsupportedGraphResultError(
+          'Unsupported mapping result type {}. Use collections.OrderedDict for '
+          'mappings. Unsupported mapping: {}'.format(
+              py_typecheck.type_string(type(result)), result))
     return _get_bindings_for_elements(name_value_pairs, graph, type(result))
   elif isinstance(result, (list, tuple)):
     element_type_binding_pairs = [

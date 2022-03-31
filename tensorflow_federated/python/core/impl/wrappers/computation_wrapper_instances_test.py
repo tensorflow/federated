@@ -23,6 +23,7 @@ from tensorflow_federated.python.core.impl.compiler import building_blocks
 from tensorflow_federated.python.core.impl.computation import computation_impl
 from tensorflow_federated.python.core.impl.context_stack import get_context_stack
 from tensorflow_federated.python.core.impl.context_stack import runtime_error_context
+from tensorflow_federated.python.core.impl.federated_context import value_impl
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import placements
 from tensorflow_federated.python.core.impl.wrappers import computation_wrapper
@@ -445,7 +446,7 @@ class FederatedComputationWrapperTest(test_case.TestCase):
     self.assertIsInstance(foo, computation_impl.ConcreteComputation)
     self.assertEqual(str(foo.type_signature), '(<> -> <>)')
 
-    self.assertEqual(str(foo.to_building_block()), '(foo_arg -> foo_arg)')
+    self.assertEqual(str(foo.to_building_block()), '(foo_arg -> <>)')
 
   def test_stack_resets_on_none_returned(self):
     stack = get_context_stack.get_context_stack()
@@ -461,6 +462,37 @@ class FederatedComputationWrapperTest(test_case.TestCase):
     except computation_wrapper.ComputationReturnedNoneError:
       self.assertIsInstance(  # pylint: disable=g-assert-in-except
           stack.current, runtime_error_context.RuntimeErrorContext)
+
+  def test_arguments_have_python_structural_types(self):
+
+    @computation_wrapper_instances.federated_computation_wrapper(
+        collections.OrderedDict(a=(tf.int32,)))
+    def _(dict_holding_tuple):
+      self.assertIsInstance(dict_holding_tuple, collections.OrderedDict)
+      self.assertIsInstance(dict_holding_tuple['a'], tuple)
+      value = dict_holding_tuple['a'][0]
+      self.assertIsInstance(value, value_impl.Value)
+      self.assert_types_identical(value.type_signature,
+                                  computation_types.to_type(tf.int32))
+      self.assertIsInstance(dict_holding_tuple, collections.OrderedDict)
+      return ()
+
+  def test_results_have_python_structural_types(self):
+
+    @computation_wrapper_instances.federated_computation_wrapper
+    def make_dict_holding_tuple():
+      return collections.OrderedDict(a=(5,))
+
+    @computation_wrapper_instances.federated_computation_wrapper
+    def _():
+      dict_holding_tuple = make_dict_holding_tuple()
+      self.assertIsInstance(dict_holding_tuple, collections.OrderedDict)
+      self.assertIsInstance(dict_holding_tuple['a'], tuple)
+      value = dict_holding_tuple['a'][0]
+      self.assertIsInstance(value, value_impl.Value)
+      self.assert_types_identical(value.type_signature,
+                                  computation_types.to_type(tf.int32))
+      return ()
 
 
 class AssertReturnsTest(test_case.TestCase):

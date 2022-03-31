@@ -224,7 +224,7 @@ class FederatedComposingStrategyTest(parameterized.TestCase):
 
     @computations.tf_computation(test_type)
     def add_five_and_three(x):
-      return collections.OrderedDict([('a', (x.a[0] + 5, x.a[1] + 3.0))])
+      return collections.OrderedDict([('a', (x['a'][0] + 5, x['a'][1] + 3.0))])
 
     @computations.federated_computation
     def comp():

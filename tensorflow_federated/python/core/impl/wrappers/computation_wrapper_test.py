@@ -267,7 +267,7 @@ class ComputationWrapperTest(test_case.TestCase):
     @test_wrap([('x', tf.int32), ('y', tf.int32)])
     def my_fn(arg):
       """This is my fn."""
-      return arg.x + arg.y
+      return arg['x'] + arg['y']
 
     self.assertEqual(
         my_fn(1, 2),  # pylint: disable=too-many-function-args

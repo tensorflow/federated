@@ -215,7 +215,7 @@ class Value(typed_object.TypedObject, metaclass=abc.ABCMeta):
       arg = None
     call = building_blocks.Call(self._comp, arg)
     ref = _bind_computation_to_reference(call, 'calling a `tff.Value`')
-    return Value(ref)
+    return structural_ref_to_py_container(ref)
 
   def __add__(self, other):
     other = to_value(other, None)
@@ -231,6 +231,39 @@ class Value(typed_object.TypedObject, metaclass=abc.ABCMeta):
         to_value([self, other], None).comp)
     ref = _bind_computation_to_reference(call, 'adding a tff.Value')
     return Value(ref)
+
+
+def _structural_block_to_struct(
+    block: building_blocks.ComputationBuildingBlock
+) -> Union[Value, structure.Struct]:
+  """Converts `block`s of structural type into `Struct` trees of `Value`s."""
+  if not block.type_signature.is_struct():
+    return Value(block)
+  names = structure.name_list_with_nones(block.type_signature)
+  elements = []
+  for i, name in enumerate(names):
+    if name is None:
+      selection = building_blocks.Selection(block, index=i)
+    else:
+      selection = building_blocks.Selection(block, name=name)
+    element = _structural_block_to_struct(selection)
+    elements.append((name, element))
+  return structure.Struct(elements)
+
+
+def structural_ref_to_struct(
+    ref: building_blocks.Reference) -> Union[Value, structure.Struct]:
+  """Converts `ref`s of structural type into `Struct` trees of `Value`s."""
+  ref.check_reference()
+  return _structural_block_to_struct(ref)
+
+
+def structural_ref_to_py_container(ref: building_blocks.Reference) -> Any:
+  """Converts `ref`s of structural type into Python structures of `Value`s."""
+  ref.check_reference()
+  struct_ = _structural_block_to_struct(ref)
+  return type_conversions.type_to_py_container(
+      struct_, ref.type_signature, struct_only=True)
 
 
 def _wrap_computation_as_value(proto: pb.Computation) -> Value:

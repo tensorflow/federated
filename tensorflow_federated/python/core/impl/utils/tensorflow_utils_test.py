@@ -312,20 +312,12 @@ class GraphUtilsTest(test_case.TestCase):
     self.assertIs(t.python_container, tuple)
 
   @test_utils.graph_mode_test
-  def test_capture_result_with_dict_of_constants(self):
-    t1 = self._checked_capture_result({
-        'a': tf.constant(1),
-        'b': tf.constant(True),
-    })
-    self.assertEqual(str(t1), '<a=int32,b=bool>')
-    self.assertIs(t1.python_container, dict)
-
-    t2 = self._checked_capture_result({
-        'b': tf.constant(True),
-        'a': tf.constant(1),
-    })
-    self.assertEqual(str(t2), '<a=int32,b=bool>')
-    self.assertIs(t2.python_container, dict)
+  def test_capture_result_with_unordered_dict_of_constants_raises(self):
+    with self.assertRaises(tensorflow_utils.UnsupportedGraphResultError):
+      self._checked_capture_result({
+          'a': tf.constant(1),
+          'b': tf.constant(True),
+      })
 
   @test_utils.graph_mode_test
   def test_capture_result_with_ordered_dict_of_constants(self):
@@ -409,9 +401,10 @@ class GraphUtilsTest(test_case.TestCase):
     t = self._checked_capture_result(
         structure.Struct([
             ('x',
-             named_tuple_type({'p': {
-                 'q': tf.constant(True)
-             }}, [tf.constant(False)])),
+             named_tuple_type(
+                 collections.OrderedDict(
+                     p=collections.OrderedDict(q=tf.constant(True))),
+                 [tf.constant(False)])),
             (None, [[tf.constant(10)]]),
         ]))
     self.assertEqual(str(t), '<x=<a=<p=<q=bool>>,b=<bool>>,<<int32>>>')

@@ -58,6 +58,9 @@ def infer_type(arg: Any) -> Optional[computation_types.Type]:
   Returns:
     Either an instance of `computation_types.Type`, or `None` if the argument is
     `None`.
+
+  Raises:
+    TypeError: If `arg` is a value of a kind not supported by TFF.
   """
   if arg is None:
     return None
@@ -104,7 +107,10 @@ def infer_type(arg: Any) -> Optional[computation_types.Type]:
     if isinstance(arg, collections.OrderedDict):
       items = arg.items()
     else:
-      items = sorted(arg.items())
+      raise TypeError(
+          'Unsupported mapping type {}. Use collections.OrderedDict for '
+          'mappings. Unsupported mapping: {}'.format(
+              py_typecheck.type_string(type(arg)), arg))
     return computation_types.StructWithPythonType(
         [(k, infer_type(v)) for k, v in items], type(arg))
   elif isinstance(arg, (tuple, list)):
@@ -369,7 +375,7 @@ def is_container_type_with_names(container_type: Type[Any]) -> bool:
           issubclass(container_type, dict))
 
 
-def type_to_py_container(value, type_spec):
+def type_to_py_container(value, type_spec, struct_only=False):
   """Recursively convert `structure.Struct`s to Python containers.
 
   This is in some sense the inverse operation to
@@ -380,6 +386,8 @@ def type_to_py_container(value, type_spec):
       `type_spec`.
     type_spec: The `tff.Type` to which value should conform, possibly including
       `computation_types.StructWithPythonType`.
+    struct_only: Whether to exclusively transform structural types, leaving
+      sequences and federated types alone. Defaults to `False`.
 
   Returns:
     The input value, with containers converted to appropriate Python
@@ -390,6 +398,8 @@ def type_to_py_container(value, type_spec):
       and unnamed values, or if `value` contains names that are mismatched or
       not present in the corresponding index of `type_spec`.
   """
+  if struct_only and not type_spec.is_struct():
+    return value
   if type_spec.is_federated():
     if type_spec.all_equal:
       structure_type_spec = type_spec.member
@@ -398,7 +408,9 @@ def type_to_py_container(value, type_spec):
         raise TypeError('Unexpected Python type for non-all-equal TFF type '
                         f'{type_spec}: expected `list`, found `{type(value)}`.')
       return [
-          type_to_py_container(element, type_spec.member) for element in value
+          type_to_py_container(
+              element, type_spec.member, struct_only=struct_only)
+          for element in value
       ]
   else:
     structure_type_spec = type_spec
@@ -406,7 +418,10 @@ def type_to_py_container(value, type_spec):
   if structure_type_spec.is_sequence():
     element_type = structure_type_spec.element
     if isinstance(value, list):
-      return [type_to_py_container(element, element_type) for element in value]
+      return [
+          type_to_py_container(element, element_type, struct_only=struct_only)
+          for element in value
+      ]
     if isinstance(value, tf.data.Dataset):
       # `tf.data.Dataset` does not understand `Struct`, so the dataset
       # in `value` must already be yielding Python containers. This is because
@@ -476,7 +491,8 @@ def type_to_py_container(value, type_spec):
   elements = []
   for index, (elem_name, elem_type) in enumerate(
       structure.iter_elements(structure_type_spec)):
-    element = type_to_py_container(value[index], elem_type)
+    element = type_to_py_container(
+        value[index], elem_type, struct_only=struct_only)
 
     if elem_name is None:
       elements.append(element)

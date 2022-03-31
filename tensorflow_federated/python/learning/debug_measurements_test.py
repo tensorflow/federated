@@ -118,10 +118,11 @@ class DebugMeasurementsTest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(
       ('server_update1', [-3.0, 4.0, 0.0], 4.0, 5.0, -3.0),
       ('server_update2', [0.0], 0.0, 0.0, 0.0),
-      ('server_update3', {
-          'a': tf.constant([1.0, -1.0]),
-          'b': tf.constant(2.0),
-      }, 2.0, tf.math.sqrt(6.0), -1.0),
+      ('server_update3',
+       collections.OrderedDict(
+           a=tf.constant([1.0, -1.0]),
+           b=tf.constant(2.0),
+       ), 2.0, tf.math.sqrt(6.0), -1.0),
   )
   def test_correctness_of_server_update_statistics(self, server_update,
                                                    expected_max, expected_norm,

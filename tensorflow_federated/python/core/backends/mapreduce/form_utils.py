@@ -67,7 +67,8 @@ def get_computation_for_broadcast_form(
 
   @computations.federated_computation(comp_parameter_type)
   def computation(arg):
-    server_data, client_data = arg
+    server_data = arg[bf.server_data_label]
+    client_data = arg[bf.client_data_label]
     context_at_server = intrinsics.federated_map(bf.compute_server_context,
                                                  server_data)
     context_at_clients = intrinsics.federated_broadcast(context_at_server)
@@ -107,7 +108,7 @@ def get_iterative_process_for_map_reduce_form(
   @computations.federated_computation(next_parameter_type)
   def next_computation(arg):
     """The logic of a single MapReduce processing round."""
-    server_state, client_data = arg
+    server_state, client_data = structure.from_container(arg)
     broadcast_input = intrinsics.federated_map(mrf.prepare, server_state)
     broadcast_result = intrinsics.federated_broadcast(broadcast_input)
     work_arg = intrinsics.federated_zip([client_data, broadcast_result])
