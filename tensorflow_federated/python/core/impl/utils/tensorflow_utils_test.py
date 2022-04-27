@@ -1171,14 +1171,14 @@ class TensorFlowDeserializationTest(test_case.TestCase):
     serialized_type = type_serialization.serialize_type(type_signature)
     computation_proto = pb.Computation(
         type=serialized_type, tensorflow=tensorflow_proto)
-    init_op, result = tensorflow_utils.deserialize_and_call_tf_computation(
+    call_result = tensorflow_utils.deserialize_and_call_tf_computation(
         computation_proto, tf.constant(10), tf.compat.v1.get_default_graph(),
-        '', tf.constant('bogus_token'))
+        '', *([tf.constant('bogus')] * 3))
     self.assertTrue(tf.is_tensor(result))
     with tf.compat.v1.Session() as sess:
-      if init_op:
-        sess.run(init_op)
-      result_val = sess.run(result)
+      if call_result.init_op:
+        sess.run(call_result.init_op)
+      result_val = sess.run(call_result.result)
     self.assertEqual(result_val, 10)
 
   @test_utils.graph_mode_test
@@ -1206,14 +1206,14 @@ class TensorFlowDeserializationTest(test_case.TestCase):
     serialized_type = type_serialization.serialize_type(type_signature)
     computation_proto = pb.Computation(
         type=serialized_type, tensorflow=tensorflow_proto)
-    init_op, result = tensorflow_utils.deserialize_and_call_tf_computation(
+    call_result = tensorflow_utils.deserialize_and_call_tf_computation(
         computation_proto, (tf.constant(10), tf.constant(20)),
-        tf.compat.v1.get_default_graph(), '', tf.constant('bogus_token'))
-    self.assertTrue(tf.is_tensor(result))
+        tf.compat.v1.get_default_graph(), '', *([tf.constant('bogus')] * 3))
+    self.assertTrue(tf.is_tensor(call_result.result))
     with tf.compat.v1.Session() as sess:
-      if init_op:
-        sess.run(init_op)
-      result_val = sess.run(result)
+      if call_result.init_op:
+        sess.run(call_result.init_op)
+      result_val = sess.run(call_result.result)
     self.assertEqual(result_val, 10)
 
   @test_utils.graph_mode_test
@@ -1233,15 +1233,15 @@ class TensorFlowDeserializationTest(test_case.TestCase):
     serialized_type = type_serialization.serialize_type(type_signature)
     computation_proto = pb.Computation(
         type=serialized_type, tensorflow=tensorflow_proto)
-    init_op, result = tensorflow_utils.deserialize_and_call_tf_computation(
+    call_result = tensorflow_utils.deserialize_and_call_tf_computation(
         computation_proto, None, tf.compat.v1.get_default_graph(), '',
-        tf.constant('bogus_token'))
-    self.assertTrue(tf.is_tensor(result))
+        *([tf.constant('bogus')] * 3))
+    self.assertTrue(tf.is_tensor(call_result.result))
     with tf.compat.v1.Session() as sess:
-      if init_op:
-        sess.run(init_op)
-      result_val = sess.run(result)
-    self.assertEqual(result_val, b'bogus_token')
+      if call_result.init_op:
+        sess.run(call_result.init_op)
+      result_val = sess.run(call_result.result)
+    self.assertEqual(result_val, b'bogus')
 
 
 if __name__ == '__main__':

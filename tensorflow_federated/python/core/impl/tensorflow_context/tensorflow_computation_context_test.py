@@ -36,7 +36,7 @@ class TensorFlowComputationContextTest(test_case.TestCase):
         bogus_proto, context_stack_impl.context_stack)
 
     context = tensorflow_computation_context.TensorFlowComputationContext(
-        tf.compat.v1.get_default_graph(), tf.constant('bogus_token'))
+        tf.compat.v1.get_default_graph(), *([tf.constant('bogus')] * 3))
 
     with self.assertRaisesRegex(
         ValueError, 'Can only invoke TensorFlow in the body of '
@@ -66,10 +66,11 @@ class TensorFlowComputationContextTest(test_case.TestCase):
 
     with tf.compat.v1.Graph().as_default() as graph:
       context = tensorflow_computation_context.TensorFlowComputationContext(
-          graph, tf.constant('bogus_token'))
+          graph, *([tf.constant('bogus')] * 3))
 
     self.assertEqual(foo.type_signature.compact_representation(), '( -> int32)')
     x = context.invoke(foo, None)
+    self.assertFalse(context.appends_to_output_sidechannel)
 
     with tf.compat.v1.Session(graph=graph) as sess:
       if context.init_ops:
@@ -77,39 +78,61 @@ class TensorFlowComputationContextTest(test_case.TestCase):
       result = sess.run(x)
     self.assertEqual(result, 13)
 
-  def test_get_session_token(self):
+  def test_get_implicit_arguments(self):
 
     @computations.tf_computation
-    def get_the_token():
-      return tensorflow_computation_context.get_session_token()
+    def get_implicit_arguments():
+      session_token = tensorflow_computation_context.get_session_token()
+      input_filename = tensorflow_computation_context.get_input_sidechannel_filename(
+      )
+      output_filename = tensorflow_computation_context.get_output_sidechannel_filename(
+      )
+      tensorflow_computation_context.set_appends_to_output_sidechannel()
+      return (session_token, input_filename, output_filename)
 
     with tf.compat.v1.Graph().as_default() as graph:
       context = tensorflow_computation_context.TensorFlowComputationContext(
-          graph, tf.constant('test_token'))
+          graph, tf.constant('test_token'), tf.constant('test_input_filename'),
+          tf.constant('test_output_filename'))
 
-    x = context.invoke(get_the_token, None)
+    self.assertFalse(context.appends_to_output_sidechannel)
+    x = context.invoke(get_implicit_arguments, None)
+    self.assertTrue(context.appends_to_output_sidechannel)
     with tf.compat.v1.Session(graph=graph) as sess:
       result = sess.run(x)
-    self.assertEqual(result, b'test_token')
+    self.assertEqual(
+        result,
+        (b'test_token', b'test_input_filename', b'test_output_filename'))
 
-  def test_get_session_token_nested(self):
-
-    @computations.tf_computation
-    def get_the_token_nested():
-      return tensorflow_computation_context.get_session_token()
+  def test_get_implicit_arguments_nested(self):
 
     @computations.tf_computation
-    def get_the_token():
-      return get_the_token_nested()
+    def get_implicit_arguments_nested():
+      session_token = tensorflow_computation_context.get_session_token()
+      input_filename = tensorflow_computation_context.get_input_sidechannel_filename(
+      )
+      output_filename = tensorflow_computation_context.get_output_sidechannel_filename(
+      )
+      tensorflow_computation_context.set_appends_to_output_sidechannel()
+      return (session_token, input_filename, output_filename)
+
+    @computations.tf_computation
+    def get_implicit_arguments():
+      return get_implicit_arguments_nested()
 
     with tf.compat.v1.Graph().as_default() as graph:
       context = tensorflow_computation_context.TensorFlowComputationContext(
-          graph, tf.constant('test_token_nested'))
+          graph, tf.constant('test_token'), tf.constant('test_input_filename'),
+          tf.constant('test_output_filename'))
 
-    x = context.invoke(get_the_token, None)
+    self.assertFalse(context.appends_to_output_sidechannel)
+    x = context.invoke(get_implicit_arguments, None)
+    self.assertTrue(context.appends_to_output_sidechannel)
     with tf.compat.v1.Session(graph=graph) as sess:
       result = sess.run(x)
-    self.assertEqual(result, b'test_token_nested')
+    self.assertEqual(
+        result,
+        (b'test_token', b'test_input_filename', b'test_output_filename'))
 
 
 if __name__ == '__main__':

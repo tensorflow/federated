@@ -19,9 +19,10 @@
 """Utilities for interacting with and manipulating TensorFlow graphs."""
 
 import collections
+import dataclasses
 import itertools
 import typing
-from typing import Any, Iterable, Optional, Tuple, Type
+from typing import Any, Iterable, Optional, Tuple, Type, Union
 
 import numpy as np
 import tensorflow as tf
@@ -1087,10 +1088,23 @@ def uniquify_shared_names_with_suffix(graph_def: tf.compat.v1.GraphDef,
   return graph_def
 
 
+@dataclasses.dataclass
+class CalledTfComputationResult:
+  """The result of calling a TF computation inside a graph context."""
+  init_op: str
+  result: Union[tf.data.Dataset, tf.Tensor, structure.Struct]
+  appended_to_output_sidechannel: bool
+
+
 def deserialize_and_call_tf_computation(
-    computation_proto: pb.Computation, arg: Any, graph: tf.Graph,
+    computation_proto: pb.Computation,
+    arg: Any,
+    graph: tf.Graph,
     shared_names_suffix: str,
-    session_token_tensor: tf.Tensor) -> Tuple[str, Any]:
+    session_token_tensor: tf.Tensor,
+    input_sidechannel_filename: tf.Tensor,
+    output_sidechannel_filename: tf.Tensor,
+) -> CalledTfComputationResult:
   """Deserializes a TF computation and inserts it into `graph`.
 
   This method performs an action that can be considered roughly the opposite of
@@ -1114,14 +1128,13 @@ def deserialize_and_call_tf_computation(
       `deserialize_and_call_tf_computation` for a given `graph`.
     session_token_tensor: A string tensor containing a token which has been fed
       a unique identifier for the current TensorFlow session.
+    input_sidechannel_filename: A string tensor containing a filename for
+      sidechannel inputs.
+    output_sidechannel_filename: A string tensor containing a filename for
+      sidechannel outputs.
 
   Returns:
-    A tuple (init_op, result) where:
-       init_op:  String name of an op to initialize the graph.
-       result: The results to be fetched from TensorFlow. Depending on
-           the type of the result, this can be `tf.Tensor` or `tf.data.Dataset`
-           instances, or a nested structure (such as an
-           `structure.Struct`).
+    A `CalledTfComputationResult`.
 
   Raises:
     TypeError: If the arguments are of the wrong types.
@@ -1165,6 +1178,15 @@ def deserialize_and_call_tf_computation(
     session_token_tensor_name = computation_proto.tensorflow.session_token_tensor_name
     if session_token_tensor_name:
       input_map[session_token_tensor_name] = session_token_tensor
+    input_sidechannel_filename_tensor_name = computation_proto.tensorflow.experimental.input_sidechannel_filename_tensor_name
+    if input_sidechannel_filename_tensor_name:
+      input_map[
+          input_sidechannel_filename_tensor_name] = input_sidechannel_filename
+    output_sidechannel_filename_tensor_name = computation_proto.tensorflow.experimental.output_sidechannel_filename_tensor_name
+    appended_to_output_sidechannel = computation_proto.tensorflow.experimental.appends_to_output_sidechannel
+    if output_sidechannel_filename_tensor_name:
+      input_map[
+          output_sidechannel_filename_tensor_name] = output_sidechannel_filename
     return_elements = extract_tensor_names_from_binding(
         computation_proto.tensorflow.result)
     orig_init_op_name = computation_proto.tensorflow.initialize_op
@@ -1193,9 +1215,9 @@ def deserialize_and_call_tf_computation(
 
     output_map = {k: v for k, v in zip(return_elements, output_tensors)}
     new_init_op_name = output_map.pop(orig_init_op_name, None)
-    return (
-        new_init_op_name,
-        assemble_result_from_graph(type_spec.result,
-                                   computation_proto.tensorflow.result,
-                                   output_map),
-    )
+    return CalledTfComputationResult(
+        init_op=new_init_op_name,
+        result=assemble_result_from_graph(type_spec.result,
+                                          computation_proto.tensorflow.result,
+                                          output_map),
+        appended_to_output_sidechannel=appended_to_output_sidechannel)

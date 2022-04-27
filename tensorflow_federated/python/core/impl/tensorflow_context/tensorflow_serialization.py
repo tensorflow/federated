@@ -71,6 +71,10 @@ def tf_computation_serializer(parameter_type: Optional[computation_types.Type],
   with tf.Graph().as_default() as graph:
     session_token_tensor = tf.compat.v1.placeholder(
         tf.string, shape=(), name='session_token_tensor')
+    input_sidechannel_filename_tensor = tf.compat.v1.placeholder(
+        tf.string, shape=(), name='input_sidechannel_filename_tensor')
+    output_sidechannel_filename_tensor = tf.compat.v1.placeholder(
+        tf.string, shape=(), name='output_sidechannel_filename_tensor')
     if parameter_type is not None:
       parameter_value, parameter_binding = tensorflow_utils.stamp_parameter_in_graph(
           'arg', parameter_type, graph)
@@ -78,7 +82,8 @@ def tf_computation_serializer(parameter_type: Optional[computation_types.Type],
       parameter_value = None
       parameter_binding = None
     context = tensorflow_computation_context.TensorFlowComputationContext(
-        graph, session_token_tensor)
+        graph, session_token_tensor, input_sidechannel_filename_tensor,
+        output_sidechannel_filename_tensor)
     with context_stack.install(context):
       with variable_utils.record_variable_creation_scope() as all_variables:
         result = yield parameter_value
@@ -118,7 +123,13 @@ def tf_computation_serializer(parameter_type: Optional[computation_types.Type],
       parameter=parameter_binding,
       result=result_binding,
       session_token_tensor_name=session_token_tensor.name,
-      initialize_op=init_op_name)
+      initialize_op=init_op_name,
+      experimental=pb.TensorFlow.Experimental(
+          input_sidechannel_filename_tensor_name=input_sidechannel_filename_tensor
+          .name,
+          output_sidechannel_filename_tensor_name=output_sidechannel_filename_tensor
+          .name,
+          appends_to_output_sidechannel=context.appends_to_output_sidechannel))
   yield pb.Computation(
       type=type_serialization.serialize_type(type_signature),
       tensorflow=tensorflow), type_signature

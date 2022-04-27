@@ -574,6 +574,23 @@ message TensorFlow {
   Binding parameter = 2;
   Binding result = 3;
 
+  // A set of computation attributes that may be subject to change in the near
+  // future.
+  Experimental experimental = 7;
+
+  message Experimental {
+    // String name of a tensor which may be fed the name of a file from which
+    // sidechannel inputs may be read.
+    string input_sidechannel_filename_tensor_name = 1;
+
+    // String name of a tensor which may be fed the name of a file to which
+    // sidechannel outputs may be written.
+    string output_sidechannel_filename_tensor_name = 2;
+
+    // Whether or not this computation appends to the output sidechannel file.
+    bool appends_to_output_sidechannel = 3;
+  }
+
   // A general representation of a binding of either a parameter or a result to
   // a part of the embedded TensorFlow graph. Note that the structure of the
   // binding is nested, and parallels the structure of the corresponding part of
