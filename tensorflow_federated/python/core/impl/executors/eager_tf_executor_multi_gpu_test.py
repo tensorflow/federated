@@ -43,7 +43,6 @@ class MultiGPUTest(tf.test.TestCase):
   def test_get_no_arg_wrapped_function_multi_gpu_no_reduce(self):
 
     @computations.tf_computation
-    @tf.function
     def comp():
       value = tf.constant(0, dtype=tf.int64)
       for d in iter(tf.data.Dataset.range(10)):
