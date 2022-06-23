@@ -1,8 +1,8 @@
 diff --git tensorflow/BUILD tensorflow/BUILD
-index 92e11a68e8d..096e4ce0b66 100644
+index 3e81d6fcc7a..53b3fb03e56 100644
 --- tensorflow/BUILD
 +++ tensorflow/BUILD
-@@ -797,17 +797,7 @@ config_setting(
+@@ -897,18 +897,7 @@ config_setting(
  package_group(
      name = "internal",
      packages = [
@@ -14,10 +14,11 @@ index 92e11a68e8d..096e4ce0b66 100644
 -        "//tensorflow_decision_forests/...",
 -        "//tensorflow_federated/...",
 -        "//third_party/cloud_tpu/inference_converter/...",
+-        "//third_party/py/cloud_ml_autoflow/...",
 -        "//third_party/py/envlogger/...",
 -        "//third_party/py/keras/...",
 -        "//third_party/yggdrasil_decision_forests/...",
 +        "//...",
      ],
  )
-
+ 

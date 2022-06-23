@@ -79,8 +79,8 @@ def tff_cc_binary_with_tf_deps(name, tf_deps = [], **kwargs):
         deps = deps + if_static(
             tf_deps,
             framework_shared_object = [
-                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.9.1",
-                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.9.1",
+                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.10.0",
+                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.10.0",
             ],
         ),
         **kwargs
@@ -108,8 +108,8 @@ def tff_cc_test_with_tf_deps(name, tf_deps = [], **kwargs):
         deps = deps + if_static(
             tf_deps,
             framework_shared_object = [
-                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.9.1",
-                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.9.1",
+                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.10.0",
+                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.10.0",
             ],
         ),
         **kwargs
@@ -133,7 +133,7 @@ def tff_cc_library_with_tf_deps(name, tf_deps = [], **kwargs):
         copts = ["-fexceptions"],
         deps = deps + if_static(
             tf_deps,
-            framework_shared_object = ["@org_tensorflow//tensorflow:libtensorflow_framework.so.2.9.1"],
+            framework_shared_object = ["@org_tensorflow//tensorflow:libtensorflow_framework.so.2.10.0"],
         ) + [
             "@pybind11",
             "@local_config_python//:python_headers",
@@ -169,8 +169,8 @@ def tff_cc_library_with_tf_runtime_deps(name, tf_deps = [], **kwargs):
         deps = deps + if_static(
             tf_deps,
             framework_shared_object = [
-                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.9.1",
-                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.9.1",
+                "@org_tensorflow//tensorflow:libtensorflow_framework.so.2.10.0",
+                "@org_tensorflow//tensorflow:libtensorflow_cc.so.2.10.0",
             ],
         ),
         **kwargs
@@ -207,7 +207,7 @@ def tff_pybind_extension_with_tf_deps(name, tf_deps = [], tf_python_dependency =
         ) + extra_tf_dyn_srcs,
         deps = deps + if_static(
             tf_deps,
-            framework_shared_object = ["@org_tensorflow//tensorflow:libtensorflow_framework.so.2.9.1"],
+            framework_shared_object = ["@org_tensorflow//tensorflow:libtensorflow_framework.so.2.10.0"],
         ) + extra_tf_dyn_deps,
         **kwargs
     )
