@@ -1,0 +1,19 @@
+diff --git tensorflow/compiler/tf2xla/BUILD tensorflow/compiler/tf2xla/BUILD
+index 79d4702edf2..d3b029af1f5 100644
+--- tensorflow/compiler/tf2xla/BUILD
++++ tensorflow/compiler/tf2xla/BUILD
+@@ -41,13 +41,7 @@ package_group(
+     name = "friends",
+     includes = [":internal"],
+     packages = [
+-        "//tensorflow/...",
+-        "//tensorflow_models/...",
+-        "//third_party/deepmind/deepmind_research/density_functional_approximation_dm21/...",
+-        "//third_party/mlir_edge/model_curriculum/iree/...",
+-        "//third_party/mlperf/submissions/training/v0_7/models/...",
+-        "//third_party/py/keras/...",
+-        "//waymo/ml/deploy/benchmark/...",
++        "//...",
+     ],
+ )
+ 
