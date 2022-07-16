@@ -56,6 +56,9 @@ git_repository(
         # TF 2.10.0. GitHub infra was failing to download the old LLVM
         # versions TFF pointed to via TF 2.9.1, thus the need for the patch.
         "//third_party/tensorflow:llvm_url.patch",
+        # TODO(b/238944918): Remove this patch when we update to a TF version
+        # which contains TFF as a friend of TF2XLA.
+        "//third_party/tensorflow:tf2xla_visibility.patch",
     ],
     remote = "https://github.com/tensorflow/tensorflow.git",
     tag = "v2.9.1",

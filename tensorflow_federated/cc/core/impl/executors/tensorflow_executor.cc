@@ -808,7 +808,7 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
         return CreateValueComputation(value_pb.computation());
       }
       case v0::Value::kTensor: {
-        return CreateValueTensor(value_pb.tensor());
+        return CreateValueTensor(value_pb);
       }
       case v0::Value::kStruct: {
         return CreateValueStruct(value_pb.struct_());
@@ -870,27 +870,8 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
     return ExecutorValue(computation);
   }
 
-  absl::StatusOr<ExecutorValue> CreateValueTensor(
-      const google::protobuf::Any& tensor_pb_any) {
-    // TODO(b/192457597): There's an extra copy here to go from
-    // `Any -> tensorflow::TensorProto -> tensorflow::Tensor`.
-    // Ideally we'd store a `tensorflow::TensorProto` directly, but this is hard
-    // due to `executor.proto` needing to be defined in OSS, which then means
-    // we'd need to pull the tensorflow proto and all its dependencies into our
-    // Github repo (or something similar). michaelreneer is probably a good
-    // resource for more information here.
-    tensorflow::TensorProto tensor_pb;
-    if (!tensor_pb_any.UnpackTo(&tensor_pb)) {
-      return absl::InvalidArgumentError(
-          ERR_LOG("Could not parse `Any` as `tensorflow::TensorProto`."));
-    }
-    tensorflow::Tensor tensor;
-    if (!tensor.FromProto(std::move(tensor_pb))) {
-      return absl::InvalidArgumentError(
-          ERR_LOG("Could not create `tensorflow::Tensor` from "
-                  "`tensorflow::TensorProto`"));
-    }
-    return ExecutorValue(std::move(tensor));
+  absl::StatusOr<ExecutorValue> CreateValueTensor(const v0::Value& value_pb) {
+    return ExecutorValue(TFF_TRY(DeserializeTensorValue(value_pb)));
   }
 
   absl::StatusOr<ExecutorValue> CreateValueStruct(
