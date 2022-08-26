@@ -48,6 +48,7 @@ limitations under the License
 #include "tensorflow/core/platform/status.h"
 #include "tensorflow/core/platform/tstring.h"
 #include "tensorflow/core/public/session.h"
+#include "tensorflow_federated/cc/core/impl/executors/dataset_from_tensor_structures.h"
 #include "tensorflow_federated/cc/core/impl/executors/executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/session_provider.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
@@ -107,66 +108,31 @@ NamesForBindingRewrite GetVariantTensorNodeNameAndReplacement(
   return names;
 }
 
-void AddDatasetFromGraphOp(
-    tensorflow::GraphDef& graphdef_pb,
-    const NamesForBindingRewrite& graph_names,
-    const std::string& dataset_placeholder_node_name) {
-  auto* graphdef_reflection = graphdef_pb.GetReflection();
-  auto repeated_nodes =
-      graphdef_reflection->GetMutableRepeatedFieldRef<::google::protobuf::Message>(
-          &graphdef_pb, graphdef_pb.GetDescriptor()->FindFieldByName(
-              "node"));
-  std::unique_ptr<::google::protobuf::Message> graph_from_dataset_node(
-      repeated_nodes.NewMessage());
-  auto* node_reflection = graph_from_dataset_node->GetReflection();
-  auto* node_descriptor = graph_from_dataset_node->GetDescriptor();
-  node_reflection->SetString(graph_from_dataset_node.get(),
-                             node_descriptor->FindFieldByName("name"),
-                             std::string(graph_names.graph_def_node_name));
-  node_reflection->SetString(graph_from_dataset_node.get(),
-                             node_descriptor->FindFieldByName("op"),
-                             std::string(kDatasetFromGraphOp));
-  node_reflection
-      ->GetMutableRepeatedFieldRef<std::string>(
-          graph_from_dataset_node.get(),
-          node_descriptor->FindFieldByName("input"))
-      .Add(std::string(dataset_placeholder_node_name));
-  repeated_nodes.Add(*graph_from_dataset_node);
+void AddDatasetFromGraphOp(tensorflow::GraphDef& graphdef_pb,
+                           const NamesForBindingRewrite& graph_names,
+                           const std::string& dataset_placeholder_node_name) {
+  tensorflow::NodeDef* graph_from_dataset_node = graphdef_pb.add_node();
+  graph_from_dataset_node->set_name(graph_names.graph_def_node_name);
+  graph_from_dataset_node->set_op(kDatasetFromGraphOp);
+  graph_from_dataset_node->add_input()->assign(dataset_placeholder_node_name);
 }
 
 void AddDatasetToGraphOp(tensorflow::GraphDef& graphdef_pb,
                          const NamesForBindingRewrite& graph_names,
                          const std::string& variant_tensor_name) {
-  auto* graphdef_reflection = graphdef_pb.GetReflection();
-  auto repeated_nodes =
-      graphdef_reflection->GetMutableRepeatedFieldRef<::google::protobuf::Message>(
-          &graphdef_pb, graphdef_pb.GetDescriptor()->FindFieldByName(
-              "node"));
-  std::unique_ptr<::google::protobuf::Message> graph_to_dataset_node(
-      repeated_nodes.NewMessage());
-  auto* node_reflection = graph_to_dataset_node->GetReflection();
-  auto* node_descriptor = graph_to_dataset_node->GetDescriptor();
-  node_reflection->SetString(graph_to_dataset_node.get(),
-                             node_descriptor->FindFieldByName("name"),
-                             std::string(graph_names.graph_def_node_name));
-  node_reflection->SetString(graph_to_dataset_node.get(),
-                             node_descriptor->FindFieldByName("op"),
-                             std::string(kDatasetToGraphOp));
-  node_reflection
-      ->GetMutableRepeatedFieldRef<std::string>(
-          graph_to_dataset_node.get(),
-          node_descriptor->FindFieldByName("input"))
-      .Add(std::string(variant_tensor_name));
-  // TODO(b/220195980): Explicitly set the default ATTRS we get from the
-  // Python API.
-  //
+  tensorflow::NodeDef* graph_from_dataset_node = graphdef_pb.add_node();
+  graph_from_dataset_node->set_name(graph_names.graph_def_node_name);
+  graph_from_dataset_node->set_op(kDatasetToGraphOp);
+  graph_from_dataset_node->add_input()->assign(variant_tensor_name);
+  // Explicitly set the default ATTRS used in the Python API.
   // external_state_policy == 0 warns when state will be lost. We expect
   // the state (shuffle buffers, etc) to be lost, but it's nice to continue
   // logging when such an event occurs.
-  //
-  // With strip_device_assignment == true, we strip the device placement, we
-  // want the session we're about to enter to provide the device placement.
-  repeated_nodes.Add(*graph_to_dataset_node);
+  (*graph_from_dataset_node->mutable_attr())["external_state_policy"].set_i(0);
+  // We strip the device placement, we want the session we're about to enter
+  // to provide the device placement.
+  (*graph_from_dataset_node->mutable_attr())["strip_device_assignment"].set_b(
+      true);
 }
 
 // Given a GraphDef and a tensor binding, replace sequence bindings that use the
@@ -754,11 +720,29 @@ absl::StatusOr<ExecutorValue> CallIntrinsic(Intrinsic intrinsic,
                                             absl::optional<ExecutorValue> arg) {
   switch (intrinsic) {
     case Intrinsic::kArgsIntoSequence: {
-      return absl::UnimplementedError(
-        "`DatasetFromTensorStructures` is not yet usable in the OSS TFF C++ "
-        "runtime. If you were trying to use `federated_select`, consider "
-        "using either the Google-only version or the Python runtime via "
-        "`tff.backends.natvie.set_local_python_execution_context()`.");
+      if (!arg.has_value()) {
+        return absl::InvalidArgumentError(
+            "`args_into_sequence` requires an argument value.");
+      }
+      if (arg->type() != ExecutorValue::ValueType::STRUCT) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "`args_into_sequence` expected a struct argument, found ",
+            arg->DebugString()));
+      }
+      if (arg->elements().empty()) {
+        return absl::InvalidArgumentError(
+            "\"args_into_sequence\" was called with zero-length argument. "
+            "\"args_into_sequence\" cannot be used to create zero-length "
+            "datasets.");
+      }
+      std::vector<std::vector<tensorflow::Tensor>> tensor_structures;
+      tensor_structures.reserve(arg->elements().size());
+      for (const ExecutorValue& structure : arg->elements()) {
+        tensor_structures.push_back(TFF_TRY(structure.Flatten()));
+      }
+      tensorflow::Tensor dataset_tensor =
+          TFF_TRY(DatasetFromTensorStructures(tensor_structures));
+      return ExecutorValue(SequenceTensor(std::move(dataset_tensor)));
     }
     default: {
       return absl::UnimplementedError(absl::StrCat(

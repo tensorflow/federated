@@ -24,6 +24,15 @@ from tensorflow_federated.python.tests import remote_runtime_test_utils
 WORKER_PORTS = [portpicker.pick_unused_port() for _ in range(2)]
 AGGREGATOR_PORTS = [portpicker.pick_unused_port() for _ in range(2)]
 
+# Hack to point Python to the Bazel-built binary.
+file_dir = os.path.dirname(os.path.realpath(__file__))
+split_dir = file_dir.split(os.path.sep)
+# At least, I think its 3
+workspace_root = os.path.sep.join(split_dir[:-3])
+_TFF_SERVICE_BINARY_PATH = os.path.join(
+    workspace_root, 'bazel-bin',
+    'tensorflow_federated/cc/simulation/worker_binary')
+
 
 def _create_local_python_mergeable_comp_context():
   async_context = tff.backends.native.create_local_async_python_execution_context(
@@ -40,6 +49,11 @@ def create_sequence_op_supporting_context():
       compiler_fn=tff.backends.native.compiler.transform_to_native_form)  # pytype: disable=wrong-arg-types
 
 
+def create_localhost_cpp_context():
+  return tff.backends.native.create_localhost_cpp_execution_context(
+      _TFF_SERVICE_BINARY_PATH)
+
+
 def _get_all_contexts():
   """Returns a list containing a (name, context_fn) tuple for each context."""
   # pylint: disable=unnecessary-lambda
@@ -49,6 +63,8 @@ def _get_all_contexts():
        lambda: _create_local_python_mergeable_comp_context()),
       ('native_local_python',
        tff.backends.native.create_local_python_execution_context),
+      ('native_localhost_cpp',
+       create_localhost_cpp_context),
       ('native_remote',
        lambda: remote_runtime_test_utils.create_localhost_remote_context(WORKER_PORTS),
        lambda: remote_runtime_test_utils.create_inprocess_worker_contexts(WORKER_PORTS)),

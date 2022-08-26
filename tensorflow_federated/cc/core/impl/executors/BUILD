@@ -754,6 +754,7 @@ tff_cc_library_with_tf_deps(
         "@org_tensorflow//tensorflow/core/platform:tstring",
     ],
     deps = [
+        ":dataset_from_tensor_structures",
         ":executor",
         ":session_provider",
         ":status_macros",

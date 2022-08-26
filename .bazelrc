@@ -63,11 +63,6 @@ build:remote --project_id=tensorflow-federated
 
 # Default build options. These are applied first and unconditionally.
 
-# For projects which use TensorFlow as part of a Bazel build process, putting
-# nothing in a bazelrc will default to a monolithic build. The following line
-# opts in to modular op registration support by default.
-build --define framework_shared_object=true
-
 build --define=grpc_no_ares=true
 
 # See https://github.com/bazelbuild/bazel/issues/7362 for information on what
@@ -107,10 +102,6 @@ build:cuda --repo_env TF_NEED_CUDA=1
 build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
 build:cuda --@local_config_cuda//:enable_cuda
 
-# Modular TF build options
-build:dynamic_kernels --define=dynamic_loaded_kernels=true
-build:dynamic_kernels --copt=-DAUTOLOAD_DYNAMIC_KERNELS
-
 # Default paths for TF_SYSTEM_LIBS
 build:linux --define=PREFIX=/usr
 build:linux --define=LIBDIR=$(PREFIX)/lib
@@ -120,9 +111,6 @@ build:linux --define=PROTOBUF_INCLUDE_PATH=$(PREFIX)/include
 # By default, build TF in C++ 17 mode.
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17
-
-# On linux, we dynamically link small amount of kernels
-build:linux --config=dynamic_kernels
 
 # Do not risk cache corruption. See:
 # https://github.com/bazelbuild/bazel/issues/3360

@@ -20,7 +20,6 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_federated as tff
 
-from tensorflow_federated.python.tests import remote_runtime_test_utils
 from tensorflow_federated.python.tests import temperature_sensor_example
 from tensorflow_federated.python.tests import test_contexts
 
@@ -323,6 +322,36 @@ class FederatedComputationTest(parameterized.TestCase):
     # cleanup happens after failures have been handled.
     map_foo_at_clients([good_tensor] * 10)
 
+  @tff.test.with_contexts(*test_contexts._get_all_contexts())
+  def test_runs_federated_select(self):
+    keys_per_client = 3
+    max_key = 5
+    selectee_type = tff.TensorType(tf.string, [None])
+
+    @tff.tf_computation(selectee_type, tf.int32)
+    @tff.check_returns_type(tf.string)
+    def gather(selectee, key):
+      return tf.gather(selectee, key)
+
+    @tff.federated_computation(
+        tff.type_at_server(selectee_type),
+        tff.type_at_clients(tff.TensorType(tf.int32, [keys_per_client])))
+    @tff.check_returns_type(tff.type_at_clients(tff.SequenceType(tf.string)))
+    def select(server_val, client_keys):
+      max_key_at_server = tff.federated_value(max_key, tff.SERVER)
+      return tff.federated_select(client_keys, max_key_at_server, server_val,
+                                  gather)
+
+    result = select(['zero', 'one', 'two', 'three', 'four'],
+                    [[0, 1, 2], [1, 2, 3], [2, 3, 4]])
+    self.assertIsInstance(result, list)
+    list_result = [list(ds.as_numpy_iterator()) for ds in result]
+    self.assertEqual(list_result, [
+        [b'zero', b'one', b'two'],
+        [b'one', b'two', b'three'],
+        [b'two', b'three', b'four'],
+    ])
+
 
 class TensorFlowComputationTest(tf.test.TestCase, parameterized.TestCase):
 
@@ -424,28 +453,7 @@ class TensorFlowComputationTest(tf.test.TestCase, parameterized.TestCase):
     result = foo()
     self.assertEqual(result, 10)
 
-  # pyformat: disable
-  # pylint: disable=unnecessary-lambda,g-long-lambda
-  @tff.test.with_contexts(
-      ('native_local',
-       lambda: tff.backends.native.create_local_python_execution_context()),
-      ('native_remote',
-       lambda: remote_runtime_test_utils.create_localhost_remote_context(
-           test_contexts.WORKER_PORTS),
-       lambda: remote_runtime_test_utils.create_inprocess_worker_contexts(
-           test_contexts.WORKER_PORTS)),
-      ('native_remote_intermediate_aggregator',
-       lambda: remote_runtime_test_utils.create_localhost_remote_context(
-           test_contexts.AGGREGATOR_PORTS),
-       lambda: remote_runtime_test_utils.create_inprocess_aggregator_contexts(
-           test_contexts.WORKER_PORTS, test_contexts.AGGREGATOR_PORTS)),
-      ('native_sizing',
-       lambda: tff.backends.native.create_sizing_execution_context()),
-      ('native_thread_debug',
-       lambda: tff.backends.native.create_thread_debugging_execution_context()),
-  )
-  # pylint: enable=unnecessary-lambda,g-long-lambda
-  # pyformat: enable
+  @tff.test.with_contexts(*test_contexts._get_all_contexts())
   def test_takes_infinite_dataset(self):
 
     @tff.tf_computation
@@ -458,28 +466,7 @@ class TensorFlowComputationTest(tf.test.TestCase, parameterized.TestCase):
     expected_result = ds.take(10).reduce(np.int64(0), lambda x, y: x + y)
     self.assertEqual(actual_result, expected_result)
 
-  # pyformat: disable
-  # pylint: disable=unnecessary-lambda,g-long-lambda
-  @tff.test.with_contexts(
-      ('native_local',
-       lambda: tff.backends.native.create_local_python_execution_context()),
-      ('native_remote',
-       lambda: remote_runtime_test_utils.create_localhost_remote_context(
-           test_contexts.WORKER_PORTS),
-       lambda: remote_runtime_test_utils.create_inprocess_worker_contexts(
-           test_contexts.WORKER_PORTS)),
-      ('native_remote_intermediate_aggregator',
-       lambda: remote_runtime_test_utils.create_localhost_remote_context(
-           test_contexts.AGGREGATOR_PORTS),
-       lambda: remote_runtime_test_utils.create_inprocess_aggregator_contexts(
-           test_contexts.WORKER_PORTS, test_contexts.AGGREGATOR_PORTS)),
-      ('native_sizing',
-       lambda: tff.backends.native.create_sizing_execution_context()),
-      ('native_thread_debug',
-       lambda: tff.backends.native.create_thread_debugging_execution_context()),
-  )
-  # pylint: enable=unnecessary-lambda,g-long-lambda
-  # pyformat: enable
+  @tff.test.with_contexts(*test_contexts._get_all_contexts())
   def test_returns_infinite_dataset(self):
 
     @tff.tf_computation
