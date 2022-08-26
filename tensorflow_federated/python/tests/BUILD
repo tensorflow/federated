@@ -139,6 +139,7 @@ py_library(
     name = "test_contexts",
     testonly = True,
     srcs = ["test_contexts.py"],
+    data = ["//tensorflow_federated/cc/simulation:worker_binary"],
     srcs_version = "PY3",
     deps = [
         ":remote_runtime_test_utils",
