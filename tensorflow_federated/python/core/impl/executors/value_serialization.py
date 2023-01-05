@@ -239,6 +239,7 @@ def _serialize_sequence_value(
         'Cannot serialize Python type {!s} as TFF type {!s}.'.format(
             py_typecheck.type_string(type(value)),
             type_spec if type_spec is not None else 'unknown'))
+  value = tensorflow_utils.coerce_dataset_to_yield_structures(value)
   element_type = computation_types.to_type(value.element_spec)
   _check_container_compat_with_tf_nest(element_type)
   value_type = computation_types.SequenceType(element_type)
@@ -399,11 +400,19 @@ def _deserialize_dataset_from_graph_def(serialized_graph_def: bytes,
                                         element_type: computation_types.Type):
   """Deserializes a serialized `tf.compat.v1.GraphDef` to a `tf.data.Dataset`.
 
+  The `tf.data.Dataset` we return here *only* yields Python tuple or
+  OrderedDict containers, depending on whether containers containing elements
+  have names or have no names. Any coercion to Python containers must be
+  performed after calling this function.
+
   Args:
     serialized_graph_def: `bytes` object produced by
       `tensorflow_serialization.serialize_dataset`
     element_type: a `tff.Type` object representing the type structure of the
-      elements yielded from the dataset.
+      elements yielded from the dataset. Any Python container information in
+      `element_type` will be dropped, and the dataset returned from this
+      function will yield either tuples or OrderedDicts, but no other
+      containers.
 
   Returns:
     A `tf.data.Dataset` instance.
@@ -413,8 +422,8 @@ def _deserialize_dataset_from_graph_def(serialized_graph_def: bytes,
 
   def transform_to_tff_known_type(
       type_spec: computation_types.Type) -> tuple[computation_types.Type, bool]:
-    """Transforms `StructType` to `StructWithPythonType`."""
-    if type_spec.is_struct() and not type_spec.is_struct_with_python():
+    """Transforms `StructType` to `StructWithPythonType` of known structure."""
+    if type_spec.is_struct():
       field_is_named = tuple(
           name is not None for name, _ in structure.iter_elements(type_spec))
       has_names = any(field_is_named)
@@ -435,7 +444,10 @@ def _deserialize_dataset_from_graph_def(serialized_graph_def: bytes,
   if element_type.is_struct():
     # TF doesn't support `structure.Struct` types, so we must transform the
     # `StructType` into a `StructWithPythonType` for use as the
-    # `tf.data.Dataset.element_spec` later.
+    # `tf.data.Dataset.element_spec` later. We must additionally drop any
+    # further type specification the user may have made, to prevent tf.data from
+    # performing optimizations in yielding elements which are incompatible with
+    # the way TFF consumes composite tensors.
     tf_compatible_type, _ = type_transformations.transform_type_postorder(
         element_type, transform_to_tff_known_type)
   else:
@@ -444,21 +456,134 @@ def _deserialize_dataset_from_graph_def(serialized_graph_def: bytes,
     tf_compatible_type = element_type
 
   tf_type_spec = type_conversions.type_to_tf_structure(tf_compatible_type)
-  element_spec = type_conversions.type_to_py_container(tf_type_spec,
-                                                       element_type)
   ds = tf.data.experimental.from_variant(
       tf.raw_ops.DatasetFromGraph(graph_def=serialized_graph_def),
-      structure=element_spec)
-  # If a serialized dataset had elements of nested structes of tensors (e.g.
-  # `dict`, `OrderedDict`), the deserialized dataset will return `dict`,
-  # `tuple`, or `namedtuple` (loses `collections.OrderedDict` in a conversion).
-  #
-  # Since the dataset will only be used inside TFF, we wrap the dictionary
-  # coming from TF in an `OrderedDict` when necessary (a type that both TF and
-  # TFF understand), using the field order stored in the TFF type stored during
-  # serialization.
-  return tensorflow_utils.coerce_dataset_elements_to_tff_type_spec(
+      structure=tf_type_spec)
+  # Repopulate the Python type information we potentially threw away above.
+  return _coerce_deserialized_dataset_elements_to_tff_type_spec(
       ds, element_type)
+
+
+def _ensure_sparse_tensor(
+    x: Union[Mapping[str, tf.Tensor], tf.SparseTensor]) -> tf.SparseTensor:
+  """Converts argument from mapping to SparseTensor if necessary."""
+  if isinstance(x, tf.SparseTensor):
+    return x
+  else:
+    if {'dense_shape', 'indices', 'values'} != set(x.keys()):
+      raise TypeError('Expected value corresponding to SparseTensor typespec '
+                      'to contain keys: \'dense_shape\', \'indices\', and '
+                      f'\'values\'; found instead keys: {x.keys()}')
+    # Unpack the mapping in x directly to sparse tensor, by passing the
+    # keywords.
+    return tf.sparse.SparseTensor(**x)
+
+
+def _coerce_deserialized_dataset_elements_to_tff_type_spec(
+    dataset: tf.data.Dataset, element_type: Union[computation_types.StructType,
+                                                  computation_types.TensorType]
+) -> tf.data.Dataset:
+  """Map the elements of a deserialized dataset to a specified type.
+
+  This is used to re-inject Python type information from `element_type` to the
+  elements of `dataset` after deserialization.
+
+  This function is tightly coupled with `_deserialize_dataset_from_graph_def`
+  above, which ensures that the dataset arguments here yield only ODict, tuple,
+  or tensor-typed elements.
+
+  Args:
+    dataset: a `tf.data.Dataset` instance.
+    element_type: a `tff.Type` specifying the type of the elements of `dataset`.
+      Must be a `tff.TensorType` or `tff.StructType`.
+
+  Returns:
+    A `tf.data.Dataset` whose output types are compatible with
+    `element_type`.
+
+  Raises:
+    ValueError: if the elements of `dataset` cannot be coerced into
+      `element_type`.
+  """
+  py_typecheck.check_type(dataset,
+                          type_conversions.TF_DATASET_REPRESENTATION_TYPES)
+  py_typecheck.check_type(element_type, computation_types.Type)
+
+  if element_type.is_tensor():
+    return dataset
+
+  def _to_representative_value(type_spec, elements):
+    """Converts container to a type understood by TF and TFF."""
+    if type_spec.is_tensor():
+      # Nothing to do here; we shortcut to focus on the structure case.
+      tf.debugging.Assert(tf.is_tensor(elements), [elements])
+      return elements
+    elif tf.is_tensor(elements):
+      # In this case we have a singleton tuple tensor that may have been
+      # unwrapped by tf.data.
+      elements = (elements,)
+
+    if not isinstance(elements, (collections.OrderedDict, tuple)):
+      raise TypeError('Structures expected to be represented as ODicts or '
+                      f'lists; got value {elements} of Python type '
+                      f'{type(elements)}')
+
+    if type_spec.is_struct_with_python():
+      py_type = computation_types.StructWithPythonType.get_container_type(
+          type_spec)
+
+      if py_type is tf.sparse.SparseTensor:
+        return _ensure_sparse_tensor(elements)
+      elif py_type is tf.RaggedTensor:
+        # TODO(b/237423976): Presumably we need a handling like SparseTensor
+        # here.
+        return elements
+
+      field_types = structure.iter_elements(type_spec)
+      if len(structure.name_list(type_spec)) == len(type_spec):
+        # We know that we have dict-like elements if we're inside this case;
+        # this is coupled with the internal function transform_to_tff_known_type
+        # above, which coerces *all* fully-named structures to ODicts during
+        # deserialization.
+        values = collections.OrderedDict(
+            (name, _to_representative_value(field_type, elements[name]))
+            for name, field_type in field_types)
+        return py_type(**values)
+      else:
+        values = [
+            _to_representative_value(field_type, e)
+            for (_, field_type), e in zip(field_types, elements)
+        ]
+        if py_typecheck.is_named_tuple(py_type):
+          return py_type(*values)
+        return py_type(values)
+    elif type_spec.is_struct():
+      # Though these values should be represented as expected by the guarantees
+      # of deserialization, we must continue the traversal to ensure that all
+      # their leaves respect the associated python types.
+      field_types = structure.to_elements(type_spec)
+      is_all_named = all([name is not None for name, _ in field_types])
+      if is_all_named:
+        # Similarly, here, we know we have dict-like elements.
+        values = [(name, _to_representative_value(field_type, elements[name]))
+                  for name, field_type in field_types]
+        return collections.OrderedDict(values)
+      else:
+        return tuple(
+            _to_representative_value(t, e) for t, e in zip(type_spec, elements))
+    else:
+      raise ValueError(
+          f'Coercing a dataset with elements of expected type {type_spec}, '
+          f'produced a value with incompatible type `{type(elements)}`. Value: '
+          f'{elements}')
+
+  def _unwrap_args(*args):
+    if len(args) == 1:
+      return _to_representative_value(element_type, args[0])
+    else:
+      return _to_representative_value(element_type, args)
+
+  return dataset.map(_unwrap_args)
 
 
 @tracing.trace
@@ -471,18 +596,18 @@ def _deserialize_sequence_value(
   Args:
     sequence_value_proto: `Sequence` protocol buffer message.
     type_hint: A `computation_types.Type` that hints at what the value type
-      should be for executors that only return values. If the
-      `sequence_value_proto.element_type` field was not set, the `type_hint` is
-      used instead.
+      should be for executors that only return values. If the type hint is not
+      set, the `sequence_value_proto.element_type` field will be read and used.
+      At least one must be present.
 
   Returns:
     A tuple of `(tf.data.Dataset, tff.Type)`.
   """
-  if sequence_value_proto.HasField('element_type'):
+  if type_hint is not None:
+    element_type = type_hint.element
+  elif sequence_value_proto.HasField('element_type'):
     element_type = type_serialization.deserialize_type(
         sequence_value_proto.element_type)
-  elif type_hint is not None:
-    element_type = type_hint.element
   else:
     raise ValueError(
         'Cannot deserialize a sequence Value proto that without one of '
@@ -496,7 +621,7 @@ def _deserialize_sequence_value(
         sequence_value_proto.serialized_graph_def, element_type)
   else:
     raise NotImplementedError(
-        'Deserializing Sequences enocded as {!s} has not been implemented'
+        'Deserializing Sequences encoded as {!s} has not been implemented'
         .format(which_value))
   return ds, computation_types.SequenceType(element=element_type)
 

@@ -41,6 +41,7 @@ from tensorflow_federated.python.core.impl.executors import ingestable_base
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import type_conversions
 from tensorflow_federated.python.core.impl.types import typed_object
+from tensorflow_federated.python.core.impl.utils import tensorflow_utils
 
 
 def _unwrap(value):
@@ -97,6 +98,18 @@ async def _ingest(executor, val, type_spec):
     py_typecheck.check_type(val_type, computation_types.Type)
     type_spec.check_assignable_from(val_type)
     return await val.ingest(executor)
+  elif type_spec.is_sequence():
+    if not isinstance(val, tf.data.Dataset):
+      val = tensorflow_utils.make_data_set_from_elements(
+          graph=None, elements=val, element_type=type_spec.element)
+    val = tensorflow_utils.coerce_dataset_to_yield_structures(val)
+    # We may have performed a type coercion, e.g. in the case of a
+    # SparseTensor-yielding dataset; pass the coerced type down, but only after
+    # checking assignability with the original one.
+    element_type = computation_types.to_type(val.element_spec)
+    type_spec.element.check_assignable_from(element_type)
+    return await executor.create_value(
+        val, computation_types.SequenceType(element_type))
   elif (isinstance(val, structure.Struct) and not type_spec.is_federated()):
     type_spec.check_struct()
     v_elem = structure.to_elements(val)

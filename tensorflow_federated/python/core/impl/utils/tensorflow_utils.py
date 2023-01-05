@@ -19,10 +19,10 @@
 """Utilities for interacting with and manipulating TensorFlow graphs."""
 
 import collections
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 import itertools
 import typing
-from typing import Any, Optional
+from typing import Any, Mapping, Optional, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -36,6 +36,7 @@ from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import type_analysis
 from tensorflow_federated.python.core.impl.types import type_conversions
 from tensorflow_federated.python.core.impl.types import type_serialization
+from tensorflow_federated.python.core.impl.types import type_transformations
 from tensorflow_federated.python.tensorflow_libs import graph_utils
 
 TENSOR_REPRESENTATION_TYPES = (
@@ -131,6 +132,96 @@ def stamp_parameter_in_graph(parameter_name, parameter_type, graph):
         'graph.'.format(parameter_type))
 
 
+def _dataset_map_single_arg_fn(ds):
+  """Parameterized decorator interop'ing dataset.map with single-arg fns."""
+
+  element_spec = ds.element_spec
+
+  def _outer_map(fn):
+
+    def _mapper(*args):
+      if py_typecheck.is_named_tuple(element_spec):
+        # Named tuples don't unpack as regular tuples do; this argument comes
+        # in as a single-element tuple containing the namedtuple. We need it
+        # as a first case because it typechecks as a tuple.
+        return fn(args[0])
+      elif isinstance(ds.element_spec, tuple):
+        # This tuple is a single, packaged argument; pass it right through.
+        return fn(args)
+      else:
+        # Otherwise, we are in a case similar to the first one, and we need to
+        # grab the container from the single-element tuple.
+        return fn(args[0])
+
+    return _mapper
+
+  return _outer_map
+
+
+def coerce_dataset_to_yield_structures(
+    ds: type_conversions.TF_DATASET_REPRESENTATION_TYPES
+) -> type_conversions.TF_DATASET_REPRESENTATION_TYPES:
+  """Converts to a dataset which yields structures of tensors.
+
+  If the incoming dataset yields SparseTensors when iterated over, this
+  function converts these SparseTensor elements to OrderedDicts of tensor
+  triplets representing the SparseTensor, in a manner which which matches the
+  expectations of TFF computations which accept these composite tensors.
+
+  Note that the TFF type of the returned dataset should be *assignable to* the
+  type of the incoming dataset.
+
+  Args:
+    ds: A `tf.data.Dataset`, which may yield `tf.SparseTensors`.
+
+  Returns:
+    A transformed dataset which yields OrderedDicts in place of any sparse
+    tensors presents in `ds`.
+  """
+
+  def _convert_sparse_tensors_to_structure(leaf_element, leaf_element_spec):
+    if isinstance(leaf_element_spec, tf.SparseTensorSpec):
+      structure_type = computation_types.to_type(leaf_element_spec)
+      odict_elements = []
+      # We iterate over the leaf_elements of TFF's structure representation of
+      # SparseTensors in *the same order* that they are represented in the TFF
+      # type. This is crucial to ensuring that the structure representation of
+      # the yielded elements matches TFF's expectations.
+      for name in structure.name_list_with_nones(structure_type):
+        odict_elements.append((name, getattr(leaf_element, name)))
+      return collections.OrderedDict(odict_elements)
+    else:
+      return leaf_element
+
+  @_dataset_map_single_arg_fn(ds)
+  @tf.function
+  def _mapping_fn(x):
+    return tf.nest.map_structure(_convert_sparse_tensors_to_structure, x,
+                                 ds.element_spec)
+
+  return ds.map(_mapping_fn)
+
+
+def _normalize_dataset_type(
+    type_spec: computation_types.Type) -> computation_types.Type:
+  """Converts any types representing SparseTensors to ODicts."""
+
+  def _transform_type(
+      inner_type: computation_types.Type
+  ) -> Tuple[computation_types.Type, bool]:
+    if inner_type.is_struct_with_python(
+    ) and computation_types.StructWithPythonType.get_container_type(
+        inner_type) is tf.SparseTensor:
+      return computation_types.to_type(
+          collections.OrderedDict(
+              (k, v) for k, v in structure.iter_elements(inner_type))), True
+    return inner_type, False
+
+  transformed_type, _ = type_transformations.transform_type_postorder(
+      type_spec, _transform_type)
+  return transformed_type
+
+
 def make_dataset_from_variant_tensor(variant_tensor, type_spec):
   """Constructs a `tf.data.Dataset` from a variant tensor and type spec.
 
@@ -154,10 +245,29 @@ def make_dataset_from_variant_tensor(variant_tensor, type_spec):
         'Expected `variant_tensor` to be of a variant type, found {}.'.format(
             variant_tensor.dtype))
   with tf.device('/device:cpu:0'):
-    return tf.data.experimental.from_variant(
+    # Forces datasets which yield SparseTensors to yield them as structures, so
+    # that a dataset which yields the appropriate structures can be assigned
+    # directly to the parameter constructed here. We will convert back from
+    # structures to SparseTensors immediately below, so that inside the body of
+    # our functions we can operate on these SparseTensors directly.
+    normalized_type = _normalize_dataset_type(
+        computation_types.to_type(type_spec))
+    normalized_ds = tf.data.experimental.from_variant(
         variant_tensor,
-        structure=(type_conversions.type_to_tf_structure(
-            computation_types.to_type(type_spec))))
+        structure=type_conversions.type_to_tf_structure(
+            computation_types.to_type(normalized_type)))
+    if normalized_type.is_struct():
+
+      @_dataset_map_single_arg_fn(normalized_ds)
+      def repackage(x):
+        return type_conversions.type_to_py_container(
+            structure.from_container(x, recursive=True), type_spec)
+
+      return normalized_ds.map(repackage)
+    else:
+      # This dataset yields tensors, not structures; no need to perform any
+      # repackaging.
+      return normalized_ds
 
 
 class InvalidGraphResultError(TypeError):
@@ -982,102 +1092,6 @@ def add_control_deps_for_init_op(graph_def, init_op):
       if init_op_control_dep not in node_inputs:
         new_node.input.extend([init_op_control_dep])
   return new_graph_def
-
-
-def coerce_dataset_elements_to_tff_type_spec(
-    dataset: tf.data.Dataset,
-    element_type: computation_types.Type) -> tf.data.Dataset:
-  """Map the elements of a dataset to a specified type.
-
-  This is used to coerce a `tf.data.Dataset` that may have lost the ordering
-  of dictionary keys back into a `collections.OrderedDict` (required by TFF).
-
-  Args:
-    dataset: a `tf.data.Dataset` instance.
-    element_type: a `tff.Type` specifying the type of the elements of `dataset`.
-      Must be a `tff.TensorType` or `tff.StructType`.
-
-  Returns:
-    A `tf.data.Dataset` whose output types are compatible with
-    `element_type`.
-
-  Raises:
-    ValueError: if the elements of `dataset` cannot be coerced into
-      `element_type`.
-  """
-  py_typecheck.check_type(dataset,
-                          type_conversions.TF_DATASET_REPRESENTATION_TYPES)
-  py_typecheck.check_type(element_type, computation_types.Type)
-  if element_type.is_tensor():
-    return dataset
-  elif element_type.is_struct_with_python():
-    py_type = computation_types.StructWithPythonType.get_container_type(
-        element_type)
-    if py_type is tf.RaggedTensor or py_type is tf.sparse.SparseTensor:
-      return dataset
-  # This is a similar to `reference_context.to_representation_for_type`,
-  # look for opportunities to consolidate?
-  def _to_representative_value(type_spec, elements):
-    """Convert to a container to a type understood by TF and TFF."""
-    if type_spec.is_tensor():
-      return elements
-    elif type_spec.is_struct_with_python():
-      if tf.is_tensor(elements):
-        # In this case we have a singleton tuple tensor that may have been
-        # unwrapped by tf.data.
-        elements = [elements]
-      py_type = computation_types.StructWithPythonType.get_container_type(
-          type_spec)
-      if py_type is tf.RaggedTensor or py_type is tf.sparse.SparseTensor:
-        return elements
-
-      field_types = structure.iter_elements(type_spec)
-      if (issubclass(py_type, Mapping) or py_typecheck.is_attrs(py_type)):
-        values = collections.OrderedDict(
-            (name, _to_representative_value(field_type, elements[name]))
-            for name, field_type in field_types)
-        return py_type(**values)
-      else:
-        values = [
-            _to_representative_value(field_type, e)
-            for (_, field_type), e in zip(field_types, elements)
-        ]
-        if py_typecheck.is_named_tuple(py_type):
-          return py_type(*values)
-        return py_type(values)
-    elif type_spec.is_struct():
-      field_types = structure.to_elements(type_spec)
-      is_all_named = all([name is not None for name, _ in field_types])
-      if is_all_named:
-        if py_typecheck.is_named_tuple(elements):
-          values = collections.OrderedDict(
-              (name, _to_representative_value(field_type, e))
-              for (name, field_type), e in zip(field_types, elements))
-          return type(elements)(**values)
-        else:
-          values = [(name, _to_representative_value(field_type, elements[name]))
-                    for name, field_type in field_types]
-          return collections.OrderedDict(values)
-      else:
-        return tuple(
-            _to_representative_value(t, e) for t, e in zip(type_spec, elements))
-    else:
-      raise ValueError(
-          'Coercing a dataset with elements of expected type {!s}, '
-          'produced a value with incompatible type `{!s}. Value: '
-          '{!s}'.format(type_spec, type(elements), elements))
-
-  # tf.data.Dataset of tuples will unwrap the tuple in the `map()` call, so we
-  # must pass a function taking *args. However, if the call was originally only
-  # a single tuple, it is now "double wrapped" and must be unwrapped before
-  # traversing.
-  def _unwrap_args(*args):
-    if len(args) == 1:
-      return _to_representative_value(element_type, args[0])
-    else:
-      return _to_representative_value(element_type, args)
-
-  return dataset.map(_unwrap_args)
 
 
 def uniquify_shared_names_with_suffix(graph_def: tf.compat.v1.GraphDef,

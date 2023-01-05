@@ -374,6 +374,28 @@ class TensorFlowComputationTest(tf.test.TestCase, parameterized.TestCase):
     self.assertCountEqual([x.numpy() for x in result], [0, 1])
 
   @tff.test.with_contexts(*test_contexts._get_all_contexts())
+  def test_create_call_sparse_tensor_dataset_reduction(self):
+
+    sparse_tensor = tf.SparseTensor([[0, i] for i in range(5)], list(range(5)),
+                                    [1, 10])
+    ds = tf.data.Dataset.from_tensor_slices(sparse_tensor)
+
+    @tff.tf_computation(tff.SequenceType(ds.element_spec))
+    @tf.function
+    def return_sum(ds):
+      sparse_zero = tf.sparse.from_dense(tf.zeros(dtype=tf.int32, shape=[10]))
+      accum = sparse_zero
+      for element in ds:
+        accum = tf.sparse.add(accum, element)
+      return accum
+
+    result = return_sum(ds)
+    # There is just a single element in this dataset; pull it out. It should
+    # equal the sum.
+    ds_elem = ds.get_single_element()
+    self.assertAllEqual(tf.sparse.to_dense(result), tf.sparse.to_dense(ds_elem))
+
+  @tff.test.with_contexts(*test_contexts._get_all_contexts())
   def test_twice_used_variable_keeps_separate_state(self):
 
     def count_one_body():
@@ -477,8 +499,8 @@ class TensorFlowComputationTest(tf.test.TestCase, parameterized.TestCase):
 
     expected_result = tf.data.Dataset.range(10).repeat()
     self.assertEqual(
-        actual_result.take(100).reduce(np.int64(0), lambda x, y: x + y),
-        expected_result.take(100).reduce(np.int64(0), lambda x, y: x + y))
+        actual_result.take(100).reduce(np.int64(0), tf.add),
+        expected_result.take(100).reduce(np.int64(0), tf.add))
 
   @tff.test.with_contexts(*test_contexts._get_all_contexts())
   def test_returns_result_with_typed_fn(self):

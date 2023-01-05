@@ -16,6 +16,7 @@ import collections
 import dataclasses
 from typing import Any
 
+from absl.testing import parameterized
 import attr
 import numpy as np
 import tensorflow as tf
@@ -1132,75 +1133,6 @@ class GraphUtilsTest(tf.test.TestCase):
         'foo(^abc),bar(foo,^abc),baz(foo,bar,^abc),'
         'bak(bar,^abc),abc(def:0),def(^ghi),ghi()')
 
-  def test_coerce_dataset_elements_noop(self):
-    x = tf.data.Dataset.range(5)
-    y = tensorflow_utils.coerce_dataset_elements_to_tff_type_spec(
-        x, computation_types.TensorType(tf.int64))
-    self.assertEqual(x.element_spec, y.element_spec)
-
-  def test_coerce_ragged_tensor_dataset_elements_noop(self):
-    ragged_tensor = tf.RaggedTensor.from_row_splits(
-        values=[3, 1, 4], row_splits=[0, 2, 2, 3])
-    dataset = tf.data.Dataset.from_tensors(ragged_tensor)
-    element_type = computation_types.StructWithPythonType(
-        [('flat_values', computation_types.TensorType(tf.int32)),
-         ('nested_row_splits',
-          computation_types.StructWithPythonType(
-              [computation_types.TensorType(tf.int64, [None])], tuple))],
-        tf.RaggedTensor)
-    result = tensorflow_utils.coerce_dataset_elements_to_tff_type_spec(
-        dataset, element_type)
-    self.assertEqual(dataset.element_spec, result.element_spec)
-
-  def test_coerce_sparse_tensor_dataset_elements_noop(self):
-    sparse_tensor = tf.sparse.SparseTensor(
-        indices=[[0, 0], [1, 2]], values=[1, 2], dense_shape=[3, 4])
-    dataset = tf.data.Dataset.from_tensors(sparse_tensor)
-    element_type = computation_types.StructWithPythonType([
-        ('indices', computation_types.TensorType(tf.int64, shape=[None, 2])),
-        ('values', computation_types.TensorType(tf.int32, shape=[None])),
-        ('dense_shape', computation_types.TensorType(tf.int64, shape=[2])),
-    ], tf.sparse.SparseTensor)
-    result = tensorflow_utils.coerce_dataset_elements_to_tff_type_spec(
-        dataset, element_type)
-    self.assertEqual(dataset.element_spec, result.element_spec)
-
-  def test_coerce_dataset_elements_nested_structure(self):
-    test_tuple_type = collections.namedtuple('TestTuple', ['u', 'v'])
-
-    def _make_nested_tf_structure(x):
-      return {
-          'b':
-              tf.cast(x, tf.int32),
-          'a':
-              tuple([
-                  x,
-                  test_tuple_type(x * 2, x * 3),
-                  collections.OrderedDict([('x', x**2), ('y', x**3)])
-              ]),
-          'c':
-              tf.cast(x, tf.float32),
-      }
-
-    x = tf.data.Dataset.range(5).map(_make_nested_tf_structure)
-
-    element_type = computation_types.StructType([
-        ('a',
-         computation_types.StructType([
-             (None, tf.int64),
-             (None, test_tuple_type(tf.int64, tf.int64)),
-             (None,
-              computation_types.StructType([('x', tf.int64), ('y', tf.int64)])),
-         ])),
-        ('b', tf.int32),
-        ('c', tf.float32),
-    ])
-
-    y = tensorflow_utils.coerce_dataset_elements_to_tff_type_spec(
-        x, element_type)
-
-    computation_types.to_type(y.element_spec).check_equivalent_to(element_type)
-
 
 class TensorFlowDeserializationTest(tf.test.TestCase):
 
@@ -1292,6 +1224,49 @@ class TensorFlowDeserializationTest(tf.test.TestCase):
         sess.run(init_op)
       result_val = sess.run(result)
     self.assertEqual(result_val, b'bogus_token')
+
+
+_TestTuple = collections.namedtuple('T', 'x')
+
+
+class CoerceDatasetToYieldStructuresTest(tf.test.TestCase,
+                                         parameterized.TestCase):
+
+  def test_tensor_yielding_dataset_noops(self):
+    ds = tf.data.Dataset.range(10)
+    transformed_ds = tensorflow_utils.coerce_dataset_to_yield_structures(ds)
+    self.assertEqual(list(ds), list(transformed_ds))
+    type_test_utils.assert_type_assignable_from(
+        computation_types.to_type(ds.element_spec),
+        computation_types.to_type(transformed_ds.element_spec))
+
+  def test_sparsetensor_yielding_dataset_converted_to_yield_odicts(self):
+    sparse_tensor = tf.SparseTensor(
+        indices=[[0, 0]], values=[2], dense_shape=[1, 5])
+    ds = tf.data.Dataset.from_tensor_slices(sparse_tensor)
+    transformed_ds = tensorflow_utils.coerce_dataset_to_yield_structures(ds)
+    self.assertIsInstance(ds.element_spec, tf.SparseTensorSpec)
+    self.assertIsInstance(transformed_ds.element_spec, collections.OrderedDict)
+    type_test_utils.assert_type_assignable_from(
+        computation_types.to_type(ds.element_spec),
+        computation_types.to_type(transformed_ds.element_spec))
+
+  @parameterized.named_parameters(
+      ('tuple', lambda x: (x,)),
+      ('namedtuple', _TestTuple),
+      ('odict', lambda x: collections.OrderedDict(a=x)),
+  )
+  def test_nested_sparsetensor_yielding_dataset_converted(self, pycontainer_fn):
+    example_container = pycontainer_fn(0)
+    sparse_tensor = tf.SparseTensor(
+        indices=[[0, 0]], values=[2], dense_shape=[1, 5])
+    ds = tf.data.Dataset.from_tensor_slices(sparse_tensor).map(pycontainer_fn)
+    transformed_ds = tensorflow_utils.coerce_dataset_to_yield_structures(ds)
+    self.assertIsInstance(ds.element_spec, type(example_container))
+    self.assertIsInstance(transformed_ds.element_spec, type(example_container))
+    type_test_utils.assert_type_assignable_from(
+        computation_types.to_type(ds.element_spec),
+        computation_types.to_type(transformed_ds.element_spec))
 
 
 if __name__ == '__main__':

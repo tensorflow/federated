@@ -40,6 +40,7 @@ py_library(
         "//tensorflow_federated/python/core/impl/types:computation_types",
         "//tensorflow_federated/python/core/impl/types:type_conversions",
         "//tensorflow_federated/python/core/impl/types:typed_object",
+        "//tensorflow_federated/python/core/impl/utils:tensorflow_utils",
     ],
 )
 

@@ -276,10 +276,10 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
     type_test_utils.assert_types_equivalent(type_spec, expected_type)
     self.assertAllEqual(list(y), [(x * 2, x, x - 1.) for x in range(5)])
 
-  @parameterized.named_parameters(('as_dataset', lambda x: x),
-                                  ('as_list', list))
+  @parameterized.named_parameters(('as_dataset', lambda x: x))
   def test_serialize_deserialize_sequence_of_sparse_tensors(self, dataset_fn):
-    self.skipTest('b/235492749')
+    # TODO(b/258037897): Add back the as-list test case here, once we fix
+    # data_set_from_elements.
     sparse_tensor = tf.SparseTensor([[0, i] for i in range(5)], list(range(5)),
                                     [1, 10])
     ds = tf.data.Dataset.from_tensor_slices(sparse_tensor)
@@ -293,8 +293,11 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
     # SparseTensor types lose the size of the first dimension, so check for
     # assignability.
     type_test_utils.assert_type_assignable_from(expected_type, type_spec)
-    deserialized_sparse_tensor = tf.concat(list(y), axis=0)
-    self.assertAllEqual(deserialized_sparse_tensor, sparse_tensor)
+
+    deserialized_sparse_tensor = tf.concat(
+        list(y.map(tf.sparse.to_dense)), axis=0)
+    original_sparse_tensor = tf.concat(list(ds.map(tf.sparse.to_dense)), axis=0)
+    self.assertAllEqual(deserialized_sparse_tensor, original_sparse_tensor)
 
   def test_serialize_deserialize_dataset_of_ragged_tensors_with_type_hint(self):
     ragged_tensor = tf.RaggedTensor.from_row_splits(
@@ -313,7 +316,6 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
     type_test_utils.assert_types_identical(type_spec, expected_type)
 
   def test_serialize_deserialize_dataset_of_sparse_tensors_with_type_hint(self):
-    self.skipTest('b/235492749')
     sparse_tensor = tf.sparse.SparseTensor(
         indices=[[0, 0], [1, 2]], values=[1, 2], dense_shape=[3, 4])
     ds = tf.data.Dataset.from_tensors(sparse_tensor)
@@ -332,7 +334,7 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
   @parameterized.named_parameters(('as_dataset', lambda x: x),
                                   ('as_list', list))
   def test_serialize_deserialize_sequence_of_ragged_tensors(self, dataset_fn):
-    self.skipTest('b/237423976')
+    self.skipTest('b/237423976,b/258038191')
     ds = tf.data.Dataset.from_tensor_slices(tf.strings.split(['a b c', 'd e']))
     ds_repr = dataset_fn(ds)
     value_proto, value_type = value_serialization.serialize_value(
@@ -571,8 +573,29 @@ class DatasetSerializationTest(tf.test.TestCase):
     self.assertEqual(x.element_spec, y.element_spec)
     self.assertAllEqual(list(y), [x * 2 for x in range(5)])
 
+  def test_coerce_odict_with_extra_elements_as_sparse_tensor_fails(self):
+
+    tensors = (tf.constant([(1, 1)], dtype=tf.int64), (1.,),
+               tf.constant((3, 3), dtype=tf.int64))
+
+    ds = tf.data.Dataset.from_tensors(tensors)
+
+    def _make_sparsetensor(i, v, s):
+      return tf.SparseTensor(i, v, s)
+
+    sparsetensor_ds = ds.map(_make_sparsetensor)
+
+    def _make_odict_with_extra_element(i, v, s):
+      return collections.OrderedDict(
+          indices=i, values=v, dense_shape=s, extra_element=0.0)
+
+    ds = ds.map(_make_odict_with_extra_element)
+
+    with self.assertRaises(TypeError):
+      value_serialization._coerce_deserialized_dataset_elements_to_tff_type_spec(
+          ds, computation_types.to_type(sparsetensor_ds.element_spec))
+
   def test_roundtrip_sequence_of_sparse_tensors(self):
-    self.skipTest('b/225927855')
 
     tensors = (tf.constant([(1, 1)], dtype=tf.int64), (1.,),
                tf.constant((3, 3), dtype=tf.int64))
@@ -582,10 +605,14 @@ class DatasetSerializationTest(tf.test.TestCase):
 
     serialized_value, _ = value_serialization.serialize_value(
         ds, computation_types.SequenceType(ds.element_spec))
-    deserialized_ds, _ = value_serialization.deserialize_value(serialized_value)
+    deserialized_ds, _ = value_serialization.deserialize_value(
+        serialized_value, computation_types.SequenceType(ds.element_spec))
     self.assertEqual(ds.element_spec, deserialized_ds.element_spec)
     self.assertAllEqual(
-        list(deserialized_ds), [tf.sparse.SparseTensor([(1, 1)], (1.), (3, 3))])
+        # We convert to dense for the comparison, since comparison on
+        # SparseTensors always fails.
+        list(deserialized_ds.map(tf.sparse.to_dense)),
+        [tf.sparse.to_dense(tf.sparse.SparseTensor([(1, 1)], (1.,), (3, 3)))])
 
   def test_roundtrip_sequence_of_tuples(self):
     x = tf.data.Dataset.range(5).map(
@@ -717,6 +744,47 @@ class SerializeNpArrayTest(tf.test.TestCase, parameterized.TestCase):
         value_proto)
     type_test_utils.assert_type_assignable_from(type_spec, deserialized_type)
     self.assertAllEqual(np_generic, deserialized_array)
+
+
+class CoerceDeserializedDatasetElementsTest(tf.test.TestCase):
+
+  def test_coerce_dataset_elements_noop(self):
+    x = tf.data.Dataset.range(5)
+    y = value_serialization._coerce_deserialized_dataset_elements_to_tff_type_spec(
+        x, computation_types.TensorType(tf.int64))
+    self.assertEqual(x.element_spec, y.element_spec)
+
+  def test_coerce_dataset_elements_nested_structure(self):
+
+    def _make_nested_tf_structure(x):
+      return collections.OrderedDict(
+          b=tf.cast(x, tf.int32),
+          a=(x, collections.OrderedDict(u=x * 2, v=x * 3),
+             collections.OrderedDict(x=x**2, y=x**3)),
+          c=tf.cast(x, tf.float32),
+      )
+
+    x = tf.data.Dataset.range(5).map(_make_nested_tf_structure)
+
+    element_type = computation_types.StructType([
+        ('a',
+         computation_types.StructType([
+             (None, tf.int64),
+             (None,
+              computation_types.to_type(
+                  collections.OrderedDict(u=tf.int64, v=tf.int64))),
+             (None,
+              computation_types.to_type(
+                  collections.OrderedDict(x=tf.int64, y=tf.int64))),
+         ])),
+        ('b', tf.int32),
+        ('c', tf.float32),
+    ])
+
+    y = value_serialization._coerce_deserialized_dataset_elements_to_tff_type_spec(
+        x, element_type)
+
+    computation_types.to_type(y.element_spec).check_equivalent_to(element_type)
 
 
 if __name__ == '__main__':

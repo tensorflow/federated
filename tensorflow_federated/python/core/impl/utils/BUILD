@@ -4,6 +4,7 @@ package(default_visibility = [
     ":utils_packages",
     "//tensorflow_federated/python/core/impl:impl_users",
     "//tensorflow_federated/python/core/impl/compiler:compiler_packages",
+    "//tensorflow_federated/python/core/impl/execution_contexts:execution_contexts_packages",
     "//tensorflow_federated/python/core/impl/executors:executors_packages",
     "//tensorflow_federated/python/core/impl/federated_context:federated_context_packages",
     "//tensorflow_federated/python/core/impl/tensorflow_context:tensorflow_context_packages",
@@ -37,6 +38,7 @@ py_library(
         "//tensorflow_federated/python/core/impl/types:type_analysis",
         "//tensorflow_federated/python/core/impl/types:type_conversions",
         "//tensorflow_federated/python/core/impl/types:type_serialization",
+        "//tensorflow_federated/python/core/impl/types:type_transformations",
         "//tensorflow_federated/python/tensorflow_libs:graph_utils",
     ],
 )
