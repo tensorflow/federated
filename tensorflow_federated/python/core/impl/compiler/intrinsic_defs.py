@@ -383,18 +383,28 @@ FEDERATED_SECURE_SUM_BITWIDTH = IntrinsicDef(
 _SELECT_TYPE = computation_types.FunctionType(
     parameter=[
         computation_types.at_clients(
-            computation_types.AbstractType('Ks')),  # client_keys
+            computation_types.TensorType(dtype=tf.int32, shape=[None])
+        ),  # client_keys
         computation_types.at_server(tf.int32),  # max_key
         computation_types.at_server(
-            computation_types.AbstractType('T')),  # server_state
+            computation_types.AbstractType('T')
+        ),  # server_state
         computation_types.FunctionType(
             [computation_types.AbstractType('T'), tf.int32],
-            computation_types.AbstractType('U'))  # select_fn
+            computation_types.AbstractType('U'),
+        ),  # select_fn
     ],
     result=computation_types.at_clients(
-        computation_types.SequenceType(computation_types.AbstractType('U'))))
+        computation_types.SequenceType(computation_types.AbstractType('U'))
+    ),
+)
 
 # Distributes server values to clients based on client keys.
+#
+# The signature spelled below is slightly more permissive than instantiation
+# allows--the client key type must be a fixed-length vector.
+#
+# Type signature: <{int32[?]}@C,int32@S,T@S,(<T,int32> -> U)> -> {U}@C
 FEDERATED_SELECT = IntrinsicDef(
     'FEDERATED_SELECT',
     'federated_select',
