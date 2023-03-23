@@ -2,27 +2,20 @@ diff --git tensorflow/BUILD tensorflow/BUILD
 index b7199470078..1ccd3788f3d 100644
 --- tensorflow/BUILD
 +++ tensorflow/BUILD
-@@ -950,22 +950,7 @@ config_setting(
+@@ -1005,8 +1005,16 @@
+ # Instead, please use public APIs or public build rules TF provides.
+ # If you need functionality that is not exposed, we will work with you to expand our public APIs.
+ # TODO(b/173549186): Move Google-internal TF code out of learning/brain
++
++# BEGIN: TensorFlow Federated modifications
  package_group(
      name = "internal",
++    packages = ["//..."],
++)
++# END: TensorFlow Federated modifications
++
++package_group(
++    name = "unused_internal",
      packages = [
--        "//devtools/python/indexer/...",
--        "//learning/brain/keras/...",
--        "//learning/brain/mlir/...",
--        "//learning/brain/tfrt/...",
--        "//learning/lib/ami/simple_ml/...",
--        "//learning/pathways/...",
--        "//smartass/brain/configure/...",
--        "//tensorflow/...",
--        "//tensorflow_decision_forests/...",
--        "//tensorflow_federated/...",
--        "//third_party/cloud_tpu/convergence_tools/sdc_monitoring/...",
--        "//third_party/cloud_tpu/inference_converter/...",
--        "//third_party/py/cloud_ml_autoflow/...",
--        "//third_party/py/envlogger/...",
--        "//third_party/py/keras/...",
--        "//third_party/yggdrasil_decision_forests/...",
-+        "//...",
-     ],
- )
-
+         "//devtools/python/indexer/...",
+         "//learning/brain/keras/...",

@@ -38,6 +38,12 @@ git_repository(
 
 git_repository(
     name = "org_tensorflow",
+    # TODO(b/256948367): Temporarily updating the version of TF past the version
+    # in https://github.com/tensorflow/federated/blob/main/requirements.txt.
+    #
+    # The version of this dependency should match the version in
+    # https://github.com/tensorflow/federated/blob/main/requirements.txt.
+    commit = "5e905e50fb9ee78dd9a79ccd7ca7436b1c75c299",
     patches = [
         # Depending on restricted visibility BUILD target om external git
         # repository does not seem to be supported.
@@ -48,12 +54,6 @@ git_repository(
         "//third_party/tensorflow:tf2xla_visibility.patch",
     ],
     remote = "https://github.com/tensorflow/tensorflow.git",
-    # TODO(b/256948367): Temporarily updating the version of TF past the version
-    # in https://github.com/tensorflow/federated/blob/main/requirements.txt.
-    #
-    # The version of this dependency should match the version in
-    # https://github.com/tensorflow/federated/blob/main/requirements.txt.
-   commit = "b517bde1f9e9231e4816b98522f2d2851840b743"
 )
 
 git_repository(

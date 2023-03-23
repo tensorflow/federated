@@ -2,20 +2,24 @@ diff --git tensorflow/compiler/tf2xla/BUILD tensorflow/compiler/tf2xla/BUILD
 index 436ea8653ed..0a73258d391 100644
 --- tensorflow/compiler/tf2xla/BUILD
 +++ tensorflow/compiler/tf2xla/BUILD
-@@ -42,15 +42,7 @@ package_group(
+@@ -38,10 +38,20 @@
+     ],
+ )
+ 
++# BEGIN: TensorFlow Federated modification
+ package_group(
      name = "friends",
      includes = [":internal"],
      packages = [
--        "//tensorflow/...",
--        "//tensorflow_federated/cc/core/impl/executors/...",
--        "//tensorflow_models/...",
--        "//third_party/deepmind/deepmind_research/density_functional_approximation_dm21/...",
--        "//third_party/mlir_edge/model_curriculum/iree/...",
--        "//third_party/mlperf/submissions/training/v0_7/models/...",
--        "//third_party/py/keras/...",
--        "//third_party/py/keras_cv/...",
--        "//waymo/ml/deploy/benchmark/...",
 +        "//...",
-     ],
- )
-
++    ],
++)
++# END: TensorFlow Federated modification
++
++package_group(
++    name = "unused_friends",
++    includes = [":internal"],
++    packages = [
+         "//tensorflow/...",
+         "//tensorflow_federated/cc/core/impl/executors/...",
+         "//tensorflow_models/...",
