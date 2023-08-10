@@ -35,7 +35,7 @@ google-vizier==0.1.4
 grpcio~=1.46
 jaxlib==0.4.13
 jax==0.4.13
-numpy~=1.21
+numpy~=1.22
 portpicker~=1.5
 scipy~=1.9.3
 semantic-version~=2.6
