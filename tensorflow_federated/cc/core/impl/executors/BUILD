@@ -1,6 +1,6 @@
-load("//tensorflow_federated/tools:build_defs.bzl", "tff_cc_cpu_gpu_test")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//tensorflow_federated/tools:build_defs.bzl", "tff_cc_cpu_gpu_test")
 
 package(
     default_applicable_licenses = ["//:package_license"],

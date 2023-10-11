@@ -14,3 +14,10 @@ license(
 licenses(["notice"])
 
 exports_files(["LICENSE"])
+
+filegroup(
+    name = "pyproject_toml",
+    srcs = ["pyproject.toml"],
+    tags = ["ignore_srcs"],
+    visibility = ["//tensorflow_federated/tools/python_package:python_package_tool"],
+)

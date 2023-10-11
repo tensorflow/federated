@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tensorflow_federated"
+description = "TensorFlow Federated is an open-source federated learning framework."
+readme = "README.md"
+requires-python = ">=3.9,<3.12"
+license = {file = "LICENSE"}
+authors = [
+  { name="Google Inc.", email="packages@tensorflow.org" },
+]
+keywords = ["tensorflow", "federated", "machine", "learning"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "absl-py>=1.0,==1.*",
+  "attrs~=23.1",
+  "cachetools~=5.3",
+  "dm-tree==0.1.8",
+  "dp-accounting==0.4.3",
+  "farmhashpy==0.4.0",
+  "google-vizier==0.1.11",
+  "grpcio~=1.46",
+  "jaxlib==0.4.14",
+  "jax==0.4.14",
+  "numpy~=1.25",
+  "portpicker~=1.6",
+  "scipy~=1.9.3",
+  "semantic-version~=2.6",
+  "tensorflow-compression>=2.14.0,==2.14.*",
+  "tensorflow-model-optimization==0.7.5",
+  "tensorflow-privacy==0.9.0",
+  "tensorflow>=2.14.0,==2.14.*",
+  "tqdm~=4.64",
+  "typing-extensions>=4.5.0,==4.5.*",
+]
+dynamic = ["version"]
+
+[project.urls]
+"Issues" = "https://github.com/tensorflow/federated/issues"
+"Releases" = "https://github.com/tensorflow/federated/releases"
+"Source" = "https://github.com/tensorflow/federated"
+"Documentation" = "https://www.tensorflow.org/federated"
+
+[tool.distutils.bdist_wheel]
+plat-name = "manylinux_2_31_x86_64"
+
+[tool.setuptools]
+# include-package-data = false
+
+[tool.setuptools.dynamic]
+version = {attr = "tensorflow_federated/version.__version__"}
+
+[tool.setuptools.packages.find]
+# include = ["tensorflow_federated*"]
+
+[tool.setuptools.package-data]
+"tensorflow_federated.data" = ["*"]
