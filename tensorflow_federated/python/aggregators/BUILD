@@ -707,6 +707,60 @@ py_test(
 )
 
 py_library(
+    name = "secure_dp",
+    srcs = ["secure_dp.py"],
+    srcs_version = "PY3",
+    deps = [
+        ":concat",
+        ":differential_privacy",
+        ":discretization",
+        ":factory",
+        ":modular_clipping",
+        ":quantile_estimation",
+        ":robust",
+        ":rotation",
+        ":secure",
+        "//tensorflow_federated/python/core/impl/federated_context:federated_computation",
+        "//tensorflow_federated/python/core/impl/federated_context:intrinsics",
+        "//tensorflow_federated/python/core/impl/tensorflow_context:tensorflow_computation",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+        "//tensorflow_federated/python/core/impl/types:placements",
+        "//tensorflow_federated/python/core/impl/types:type_analysis",
+        "//tensorflow_federated/python/core/impl/types:type_conversions",
+        "//tensorflow_federated/python/core/templates:aggregation_process",
+        "//tensorflow_federated/python/core/templates:measured_process",
+        "@org_tensorflow//tensorflow:tensorflow_py",
+    ],
+)
+
+py_test(
+    name = "secure_dp_test",
+    timeout = "eternal",
+    srcs = ["secure_dp_test.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":concat",
+        ":differential_privacy",
+        ":discretization",
+        ":factory",
+        ":robust",
+        ":rotation",
+        ":secure",
+        ":secure_dp",
+        "//tensorflow_federated/python/core/backends/test:execution_contexts",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+        "//tensorflow_federated/python/core/impl/types:type_conversions",
+        "//tensorflow_federated/python/core/templates:aggregation_process",
+        "//tensorflow_federated/python/core/templates:estimation_process",
+        "//tensorflow_federated/python/core/templates:measured_process",
+        "//tensorflow_federated/python/core/test:static_assert",
+        "@absl_py//absl/testing:parameterized",
+        "@org_tensorflow//tensorflow:tensorflow_py",
+    ],
+)
+
+py_library(
     name = "stochastic_discretization",
     srcs = ["stochastic_discretization.py"],
     deps = [
