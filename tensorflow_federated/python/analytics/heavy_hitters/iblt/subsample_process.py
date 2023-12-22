@@ -164,6 +164,12 @@ class SubsampleProcess(abc.ABC):
       subsampled client dataset with the same format as client_data.
     """
 
+  @abc.abstractmethod
+  def subsample_fn_with_unique_count(
+      self, client_data: tf.data.Dataset, subsampling_param: float
+  ):
+    """Performs subsampling when client values have unique counts appended."""
+
 
 class ThresholdSamplingProcess(SubsampleProcess):
   """Implements threshold sampling.
@@ -190,7 +196,10 @@ class ThresholdSamplingProcess(SubsampleProcess):
   """
 
   def __init__(
-      self, init_param: float, is_adaptive: bool = False, beta: float = 0.5
+      self,
+      init_param: float,
+      is_adaptive: bool = False,
+      beta: float = 0.5,
   ):
     """Initialize the subsamping precoess.
 
@@ -246,29 +255,74 @@ class ThresholdSamplingProcess(SubsampleProcess):
     return self._init_param
 
   def subsample_fn(
-      self, client_data: tf.data.Dataset, subsampling_param: float
-  ):
+      self,
+      client_data: tf.data.Dataset,
+      subsampling_param: float,
+  ) -> tf.data.Dataset:
     """See base class. Raise ValueError if client data has negative counts."""
-
-    generator = tf.random.Generator.from_non_deterministic_state()
 
     @tf.function
     def threshold_sampling(element):
-      count = element[iblt_factory.DATASET_VALUE]
+      count = element[iblt_factory.DATASET_VALUE][0]
       tf.debugging.assert_non_negative(
           count, 'Current implementation only supports positive values.'
       )
-      if count >= subsampling_param:
+      if count >= tf.cast(subsampling_param, dtype=count.dtype):
         return element
-      random_val = generator.uniform(
-          shape=(), minval=0, maxval=subsampling_param, dtype=count.dtype
+
+      random_val = tf.random.uniform(
+          shape=(),
+          minval=0,
+          maxval=tf.cast(subsampling_param, dtype=count.dtype),
+          dtype=count.dtype,
       )
-      thresholded_val = subsampling_param if count > random_val else 0
+      if count > random_val:
+        thresholded_val = tf.cast(subsampling_param, dtype=count.dtype)
+      else:
+        thresholded_val = tf.cast(0, dtype=count.dtype)
       return collections.OrderedDict([
           (iblt_factory.DATASET_KEY, element[iblt_factory.DATASET_KEY]),
           (
               iblt_factory.DATASET_VALUE,
               tf.cast([thresholded_val], dtype=count.dtype),
+          ),
+      ])
+    subsampled_client_data = client_data.map(threshold_sampling)
+    return subsampled_client_data.filter(
+        lambda x: x[iblt_factory.DATASET_VALUE][0] > 0
+    )
+
+  def subsample_fn_with_unique_count(
+      self,
+      client_data: tf.data.Dataset,
+      subsampling_param: float,
+  ) -> tf.data.Dataset:
+    """See base class. Raise ValueError if client data has negative counts."""
+
+    @tf.function
+    def threshold_sampling(element):
+      count = element[iblt_factory.DATASET_VALUE][0]
+      tf.debugging.assert_non_negative(
+          count, 'Current implementation only supports positive values.'
+      )
+      if count >= tf.cast(subsampling_param, dtype=count.dtype):
+        return element
+
+      random_val = tf.random.uniform(
+          shape=(),
+          minval=0,
+          maxval=tf.cast(subsampling_param, dtype=count.dtype),
+          dtype=count.dtype,
+      )
+      if count > random_val:
+        thresholded_val = tf.cast(subsampling_param, dtype=count.dtype)
+      else:
+        thresholded_val = tf.cast(0, dtype=count.dtype)
+      return collections.OrderedDict([
+          (iblt_factory.DATASET_KEY, element[iblt_factory.DATASET_KEY]),
+          (
+              iblt_factory.DATASET_VALUE,
+              tf.cast([thresholded_val, 1], dtype=count.dtype),
           ),
       ])
 
