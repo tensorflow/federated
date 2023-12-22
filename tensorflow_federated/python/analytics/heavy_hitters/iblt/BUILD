@@ -59,6 +59,33 @@ py_test(
 )
 
 py_library(
+    name = "iblt_subsampling",
+    srcs = ["iblt_subsampling.py"],
+    deps = [
+        ":iblt_factory",
+        ":subsample_process",
+        "//tensorflow_federated/python/aggregators:factory",
+        "//tensorflow_federated/python/core/impl/federated_context:federated_computation",
+        "//tensorflow_federated/python/core/impl/federated_context:intrinsics",
+        "//tensorflow_federated/python/core/impl/tensorflow_context:tensorflow_computation",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+        "//tensorflow_federated/python/core/templates:aggregation_process",
+    ],
+)
+
+py_test(
+    name = "iblt_subsampling_test",
+    srcs = ["iblt_subsampling_test.py"],
+    deps = [
+        ":iblt_factory",
+        ":iblt_subsampling",
+        ":subsample_process",
+        "//tensorflow_federated/python/core/backends/native:execution_contexts",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+    ],
+)
+
+py_library(
     name = "iblt_lib",
     srcs = [
         "iblt_lib.py",
