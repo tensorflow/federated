@@ -463,6 +463,11 @@ class DifferentiallyPrivateFactory(factory.UnweightedAggregationFactory):
     )
     self._record_aggregation_factory = record_aggregation_factory
 
+  @property
+  def query(self) -> tfp.SumAggregationDPQuery:
+    """The TFP sum query backing the DP aggregator."""
+    return self._query
+
   def create(
       self, value_type: factory.ValueType
   ) -> aggregation_process.AggregationProcess:
