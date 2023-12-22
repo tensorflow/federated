@@ -22,7 +22,9 @@ from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_lib import de
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_lib import DEFAULT_REPETITIONS
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_lib import IbltDecoder
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_lib import IbltEncoder
+from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_subsampling import SubsampledIbltFactory
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_tensor import decode_iblt_tensor_tf
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_tensor import IbltTensorDecoder
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_tensor import IbltTensorEncoder
 from tensorflow_federated.python.analytics.heavy_hitters.iblt.iblt_tff import build_iblt_computation
+from tensorflow_federated.python.analytics.heavy_hitters.iblt.subsample_process import ThresholdSamplingProcess

@@ -62,6 +62,9 @@ DATA_SOME_IN_BETWEEN = _generate_client_local_data(
     (['good', 'morning', 'hi', 'bye'], [[3], [1], [2], [5]])
 )
 DATA_ALL_ZERO = _generate_client_local_data((['new', 'york'], [[0], [0]]))
+DATA_SOME_IN_BETWEEN_WITH_UNIQUE_COUNT = _generate_client_local_data(
+    (['good', 'morning', 'hi', 'bye'], [[3, 1], [1, 1], [2, 1], [5, 1]])
+)
 
 
 class ThresholdSubsampleProcessTest(tf.test.TestCase, parameterized.TestCase):
@@ -145,6 +148,24 @@ class ThresholdSubsampleProcessTest(tf.test.TestCase, parameterized.TestCase):
       tf.random.set_seed(i)
       sampled_dataset = threshold_sampling.subsample_fn(
           DATA_SOME_IN_BETWEEN, subsample_param
+      )
+      for j, _ in enumerate(strings):
+        counts[j] += _get_count_from_dataset(sampled_dataset, strings[j])
+    self.assertAllClose(counts / rep, expected_freqs, atol=0.45)
+
+  def test_sampling_in_between_with_unique_count(self):
+    threshold_sampling = subsample_process.ThresholdSamplingProcess(
+        init_param=THRESHOLD
+    )
+    rep = 300
+    strings = ['good', 'morning', 'hi', 'bye']
+    expected_freqs = np.array([3, 1, 2, 5])
+    counts = np.zeros(len(strings))
+    subsample_param = threshold_sampling.get_init_param()
+    for i in range(rep):
+      tf.random.set_seed(i)
+      sampled_dataset = threshold_sampling.subsample_fn_with_unique_count(
+          DATA_SOME_IN_BETWEEN_WITH_UNIQUE_COUNT, subsample_param
       )
       for j, _ in enumerate(strings):
         counts[j] += _get_count_from_dataset(sampled_dataset, strings[j])

@@ -27,8 +27,10 @@ py_library(
         ":hyperedge_hashers",
         ":iblt_clipping",
         ":iblt_lib",
+        ":iblt_subsampling",
         ":iblt_tensor",
         ":iblt_tff",
+        ":subsample_process",
     ],
 )
 
@@ -53,6 +55,33 @@ py_test(
     deps = [
         ":iblt_clipping",
         ":iblt_factory",
+        "//tensorflow_federated/python/core/backends/native:execution_contexts",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+    ],
+)
+
+py_library(
+    name = "iblt_subsampling",
+    srcs = ["iblt_subsampling.py"],
+    deps = [
+        ":iblt_factory",
+        ":subsample_process",
+        "//tensorflow_federated/python/aggregators:factory",
+        "//tensorflow_federated/python/core/impl/federated_context:federated_computation",
+        "//tensorflow_federated/python/core/impl/federated_context:intrinsics",
+        "//tensorflow_federated/python/core/impl/tensorflow_context:tensorflow_computation",
+        "//tensorflow_federated/python/core/impl/types:computation_types",
+        "//tensorflow_federated/python/core/templates:aggregation_process",
+    ],
+)
+
+py_test(
+    name = "iblt_subsampling_test",
+    srcs = ["iblt_subsampling_test.py"],
+    deps = [
+        ":iblt_factory",
+        ":iblt_subsampling",
+        ":subsample_process",
         "//tensorflow_federated/python/core/backends/native:execution_contexts",
         "//tensorflow_federated/python/core/impl/types:computation_types",
     ],
@@ -195,6 +224,7 @@ py_library(
 
 py_test(
     name = "subsample_process_test",
+    timeout = "long",
     srcs = ["subsample_process_test.py"],
     deps = [
         ":iblt_factory",
