@@ -18,8 +18,8 @@ from collections.abc import Callable, Mapping
 from typing import Optional, Union
 
 import tensorflow as tf
+import typing_extensions
 
-from tensorflow_federated.python.common_libs import deprecation
 from tensorflow_federated.python.core.environments.tensorflow_frontend import tensorflow_computation
 from tensorflow_federated.python.core.impl.computation import computation_base
 from tensorflow_federated.python.core.impl.federated_context import federated_computation
@@ -190,7 +190,7 @@ def build_functional_local_evaluation(
   return local_eval
 
 
-@deprecation.deprecated(
+@typing_extensions.deprecated(
     '`tff.learning.build_federated_evaluation` is deprecated, use '
     '`tff.learning.algorithms.build_fed_eval` instead.'
 )

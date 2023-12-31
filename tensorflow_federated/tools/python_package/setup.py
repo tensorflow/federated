@@ -76,7 +76,7 @@ REQUIRED_PACKAGES = [
     'tensorflow-privacy==0.8.12',
     'tensorflow>=2.14.0,==2.14.*',
     'tqdm~=4.64',
-    'typing-extensions>=4.5.0,==4.5.*',
+    'typing-extensions>=4.6.0,==4.6.*',
     # TODO: b/315515548 - Required because current dependencies are pulling in
     # later versions which are causing opaque failures.
     'googleapis-common-protos==1.61.0',

@@ -17,8 +17,8 @@ from typing import Any, NamedTuple
 
 import numpy as np
 import tensorflow as tf
+import typing_extensions
 
-from tensorflow_federated.python.common_libs import deprecation
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
 from tensorflow_federated.python.core.environments.tensorflow_frontend import tensorflow_computation
@@ -39,7 +39,7 @@ def _validate_value_on_clients(value):
     )
 
 
-@deprecation.deprecated(
+@typing_extensions.deprecated(
     '`tff.aggregators.federated_min` is deprecated, use `tff.federated_min`'
     ' instead.'
 )
@@ -63,7 +63,7 @@ def federated_min(value):
   return intrinsics.federated_min(value_impl.to_value(value, type_spec=None))
 
 
-@deprecation.deprecated(
+@typing_extensions.deprecated(
     '`tff.aggregators.federated_max` is deprecated, use `tff.federated_max`'
     ' instead.'
 )

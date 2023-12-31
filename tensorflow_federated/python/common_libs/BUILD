@@ -37,17 +37,6 @@ py_test(
 )
 
 py_library(
-    name = "deprecation",
-    srcs = ["deprecation.py"],
-)
-
-py_test(
-    name = "deprecation_test",
-    srcs = ["deprecation_test.py"],
-    deps = [":deprecation"],
-)
-
-py_library(
     name = "golden",
     testonly = True,
     srcs = ["golden.py"],

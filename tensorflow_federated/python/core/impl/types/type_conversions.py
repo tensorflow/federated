@@ -22,15 +22,15 @@ import attrs
 import numpy as np
 import tensorflow as tf
 import tree
+import typing_extensions
 
-from tensorflow_federated.python.common_libs import deprecation
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import typed_object
 
 
-@deprecation.deprecated(
+@typing_extensions.deprecated(
     '`tff.types.infer_unplaced_type()` is deprecated, use `tff.Type()`'
     ' constructors instead.'
 )

@@ -42,7 +42,7 @@ semantic-version~=2.6
 tensorflow-model-optimization==0.7.5
 tensorflow-privacy==0.8.12
 tqdm~=4.64
-typing-extensions>=4.5.0,==4.5.*
+typing-extensions>=4.6.0,==4.6.*
 
 # Requires TF x.y.* for ABI compatibility.
 tensorflow-compression>=2.14.0,==2.14.*
