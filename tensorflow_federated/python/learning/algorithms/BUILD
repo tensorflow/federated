@@ -1,5 +1,5 @@
-load("//tensorflow_federated/tools:build_defs.bzl", "py_cpu_gpu_test")
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("//tensorflow_federated/tools:build_defs.bzl", "py_cpu_gpu_test")
 
 package(
     default_applicable_licenses = ["//:package_license"],

@@ -18,9 +18,24 @@ limitations under the License
 
 #include <string>
 
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/framework/tensor_shape.h"
+#include "tensorflow_federated/proto/v0/array.pb.h"
 
 namespace tensorflow_federated {
+
+// Creates a tensorflow::TensorShape from a v0::ArrayShape.
+absl::StatusOr<tensorflow::TensorShape> TensorShapeFromArrayShape(
+    const v0::ArrayShape& shape_pb);
+
+// Creates a tensorflow::PartialTensorShape from a v0::ArrayShape.
+tensorflow::PartialTensorShape PartialTensorShapeFromArrayShape(
+    const v0::ArrayShape& shape_pb);
+
+// Creates a tensorflow::Tensor from a v0::Array.
+absl::StatusOr<tensorflow::Tensor> TensorFromArray(const v0::Array& array_pb);
 
 std::string GetNodeName(absl::string_view tensor_name);
 

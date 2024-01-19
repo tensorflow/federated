@@ -367,6 +367,8 @@ def _evaluate_to_tensorflow(
     for name, element in structure.iter_elements(comp):
       elements.append((name, _evaluate_to_tensorflow(element, bindings)))
     return structure.Struct(elements)
+  if isinstance(comp, building_blocks.Literal):
+    return comp.value
   if isinstance(
       comp,
       (

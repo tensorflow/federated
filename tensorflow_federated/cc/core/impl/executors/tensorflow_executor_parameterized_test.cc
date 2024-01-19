@@ -44,6 +44,8 @@ limitations under the License
 #include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/platform/status.h"
 #include "tensorflow/core/platform/tstring.h"
+#include "tensorflow_federated/cc/core/impl/executors/array_shape_test_utils.h"
+#include "tensorflow_federated/cc/core/impl/executors/array_test_utils.h"
 #include "tensorflow_federated/cc/core/impl/executors/dtensor_executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/protobuf_matchers.h"
@@ -51,7 +53,9 @@ limitations under the License
 #include "tensorflow_federated/cc/core/impl/executors/status_matchers.h"
 #include "tensorflow_federated/cc/core/impl/executors/tensorflow_executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/value_test_utils.h"
+#include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
+#include "tensorflow_federated/proto/v0/data_type.pb.h"
 #include "tensorflow_federated/proto/v0/executor.pb.h"
 
 ABSL_FLAG(std::string, reduce_graph_path, "",
@@ -619,6 +623,35 @@ TYPED_TEST(TensorFlowBasedExecutorsTest, ArgsIntoSequenceReturnsReducible) {
   v0::Value result =
       TFF_ASSERT_OK(this->test_executor_->Materialize(result_id));
   EXPECT_THAT(result, EqualsProto(TensorV(expected_sum)));
+}
+
+class TensorFlowExecutorTest : public ::testing::Test {
+ public:
+  TensorFlowExecutorTest() { test_executor_ = CreateTensorFlowExecutor(10); }
+  std::shared_ptr<Executor> test_executor_;
+
+  void CheckMaterializeEqual(ValueId id, v0::Value expected_result) {
+    v0::Value output_pb;
+    EXPECT_THAT(test_executor_->Materialize(id, &output_pb), IsOk());
+    EXPECT_THAT(output_pb, testing::proto::IgnoringRepeatedFieldOrdering(
+                               EqualsProto(expected_result)));
+  }
+};
+
+TEST_F(TensorFlowExecutorTest, CreateValueComputationLiteralReturnsResult) {
+  const v0::DataType dtype = v0::DataType::DT_INT32;
+  v0::ArrayShape shape_pb = testing::CreateArrayShape({});
+  auto values = {1};
+  v0::Array array_pb =
+      TFF_ASSERT_OK(testing::CreateArray(dtype, shape_pb, values));
+  v0::Computation computation_pb = testing::LiteralComputation(array_pb);
+  v0::Value value_pb = testing::ComputationV(computation_pb);
+
+  const OwnedValueId& embedded_fn =
+      TFF_ASSERT_OK(test_executor_->CreateValue(value_pb));
+
+  const v0::Value& expected_pb = TensorV(1);
+  CheckMaterializeEqual(embedded_fn, expected_pb);
 }
 
 }  // namespace

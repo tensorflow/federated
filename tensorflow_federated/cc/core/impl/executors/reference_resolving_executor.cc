@@ -512,6 +512,7 @@ ReferenceResolvingExecutor::Evaluate(
     case v0::Computation::kIntrinsic:
     case v0::Computation::kData:
     case v0::Computation::kPlacement:
+    case v0::Computation::kLiteral:
     case v0::Computation::kXla: {
       // Note: we're copying the Computation proto here, possibly a TensorFlow
       // graph which might have large constants, possibly making it expensive.

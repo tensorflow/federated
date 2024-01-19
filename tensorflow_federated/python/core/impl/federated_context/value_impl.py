@@ -21,15 +21,12 @@ import typing
 from typing import Optional, Union
 
 import attrs
-import tensorflow as tf
 
-from tensorflow_federated.proto.v0 import computation_pb2 as pb
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
 from tensorflow_federated.python.core.impl.compiler import array
 from tensorflow_federated.python.core.impl.compiler import building_block_factory
 from tensorflow_federated.python.core.impl.compiler import building_blocks
-from tensorflow_federated.python.core.impl.compiler import tensorflow_computation_factory
 from tensorflow_federated.python.core.impl.computation import computation_impl
 from tensorflow_federated.python.core.impl.computation import function_utils
 from tensorflow_federated.python.core.impl.computation import polymorphic_computation
@@ -38,6 +35,7 @@ from tensorflow_federated.python.core.impl.context_stack import context_stack_im
 from tensorflow_federated.python.core.impl.context_stack import symbol_binding_context
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import placements
+from tensorflow_federated.python.core.impl.types import type_conversions
 from tensorflow_federated.python.core.impl.types import typed_object
 
 
@@ -230,30 +228,27 @@ class Value(typed_object.TypedObject, metaclass=abc.ABCMeta):
     return Value(ref)
 
 
-def _wrap_computation_as_value(proto: pb.Computation) -> Value:
-  """Wraps the given computation as a `tff.Value`."""
-  py_typecheck.check_type(proto, pb.Computation)
-  compiled = building_blocks.CompiledComputation(proto)
-  call = building_blocks.Call(compiled)
-  ref = _bind_computation_to_reference(
-      call, 'wrapping a computation as a value'
-  )
-  return Value(ref)
-
-
-def _wrap_constant_as_value(const) -> Value:
-  """Wraps the given Python constant as a `tff.Value`.
+def _array_to_value(
+    value: array.Array, type_spec: computation_types.TensorType
+) -> Value:
+  """Wraps a Python value, `np.generic`, or `np.ndarray` as a `tff.Value`.
 
   Args:
-    const: Python constant convertible to Tensor via `tf.constant`.
+    value: A Python value, `np.generic`, or `np.ndarray`.
+    type_spec: The `tff.TensorType` of the value.
 
   Returns:
     An instance of `tff.Value`.
   """
-  tf_comp, _ = tensorflow_computation_factory.create_computation_for_py_fn(
-      fn=lambda: tf.constant(const), parameter_type=None
+  result = building_blocks.Literal(value, type_spec)
+  fn = building_blocks.Lambda(
+      parameter_name=None, parameter_type=None, result=result
   )
-  return _wrap_computation_as_value(tf_comp)
+  call = building_blocks.Call(fn)
+  reference = _bind_computation_to_reference(
+      call, 'wrapping a computation as a value'
+  )
+  return Value(reference)
 
 
 def _dictlike_items_to_value(items, type_spec, container_type) -> Value:
@@ -393,7 +388,11 @@ def to_value(
     items = zip(itertools.repeat(None), arg)
     result = _dictlike_items_to_value(items, type_spec, type(arg))
   elif isinstance(arg, typing.get_args(array.Array)):
-    result = _wrap_constant_as_value(arg)
+    if type_spec is None:
+      type_spec = type_conversions.infer_type(arg)
+    if not isinstance(type_spec, computation_types.TensorType):
+      raise ValueError(f'Expected a `tff.TensorType`, found {type_spec}.')
+    return _array_to_value(arg, type_spec)
   else:
     raise TypeError(
         'Expected a Python types that is convertible to a `tff.Value`, found'

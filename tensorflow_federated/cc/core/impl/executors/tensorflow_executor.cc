@@ -55,6 +55,7 @@ limitations under the License
 #include "tensorflow_federated/cc/core/impl/executors/session_provider.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
 #include "tensorflow_federated/cc/core/impl/executors/tensor_serialization.h"
+#include "tensorflow_federated/cc/core/impl/executors/tensorflow_utils.h"
 #include "tensorflow_federated/cc/core/impl/executors/threading.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
 #include "tensorflow_federated/proto/v0/executor.pb.h"
@@ -849,6 +850,11 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
           }
         }
         return ExecutorValue(computation);
+      }
+      case v0::Computation::kLiteral: {
+        const tensorflow::Tensor& tensor =
+            TFF_TRY(TensorFromArray(comp_pb.literal().value()));
+        return ExecutorValue(tensor);
       }
       case v0::Computation::kIntrinsic: {
         Intrinsic intrinsic =

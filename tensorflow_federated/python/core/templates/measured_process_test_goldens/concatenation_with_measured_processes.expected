@@ -2,11 +2,11 @@ initialize:
 
 ( -> (let
   fc_concatenation_initialize_symbol_0=( -> (let
-    fc__initialize_double_symbol_0=comp#1(),
+    fc__initialize_double_symbol_0=( -> 1)(),
     fc__initialize_double_symbol_1=federated_value_at_server(fc__initialize_double_symbol_0)
    in fc__initialize_double_symbol_1))(),
   fc_concatenation_initialize_symbol_1=( -> (let
-    fc__initialize_sum_symbol_0=comp#2(),
+    fc__initialize_sum_symbol_0=( -> 0)(),
     fc__initialize_sum_symbol_1=federated_value_at_server(fc__initialize_sum_symbol_0)
    in fc__initialize_sum_symbol_1))(),
   fc_concatenation_initialize_symbol_2=federated_zip_at_server(<
@@ -27,7 +27,7 @@ next:
       (_double_arg -> _double_arg),
       _next_double_arg[1]
     >),
-    fc__next_double_symbol_2=comp#1(),
+    fc__next_double_symbol_2=( -> 1)(),
     fc__next_double_symbol_3=federated_value_at_server(<
       a=fc__next_double_symbol_2
     >)
@@ -48,7 +48,7 @@ next:
       _next_sum_arg[0]
     >),
     fc__next_sum_symbol_1=federated_sum(_next_sum_arg[1]),
-    fc__next_sum_symbol_2=comp#2(),
+    fc__next_sum_symbol_2=( -> 2)(),
     fc__next_sum_symbol_3=federated_value_at_server(<
       b=fc__next_sum_symbol_2
     >)

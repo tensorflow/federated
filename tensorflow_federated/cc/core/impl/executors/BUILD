@@ -1,6 +1,6 @@
-load("//tensorflow_federated/tools:build_defs.bzl", "tff_cc_cpu_gpu_test")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//tensorflow_federated/tools:build_defs.bzl", "tff_cc_cpu_gpu_test")
 
 package(
     default_applicable_licenses = ["//:package_license"],
@@ -20,6 +20,27 @@ package_group(
 )
 
 licenses(["notice"])
+
+cc_library(
+    name = "array_shape_test_utils",
+    testonly = True,
+    hdrs = ["array_shape_test_utils.h"],
+    deps = ["//tensorflow_federated/proto/v0:array_cc_proto"],
+)
+
+cc_library(
+    name = "array_test_utils",
+    testonly = True,
+    hdrs = ["array_test_utils.h"],
+    deps = [
+        "//tensorflow_federated/proto/v0:array_cc_proto",
+        "//tensorflow_federated/proto/v0:data_type_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@eigen",
+    ],
+)
 
 cc_library(
     name = "cardinalities",
@@ -951,6 +972,7 @@ cc_library(
         ":session_provider",
         ":status_macros",
         ":tensor_serialization",
+        ":tensorflow_utils",
         ":threading",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
         "//tensorflow_federated/proto/v0:executor_cc_proto",
@@ -982,6 +1004,8 @@ tff_cc_cpu_gpu_test(
     data = ["reduce_lambda_test.pbtxt"],
     env = {"TF_XLA_FLAGS": "--tf_mlir_enable_mlir_bridge=true"},
     deps = [
+        ":array_shape_test_utils",
+        ":array_test_utils",
         ":dtensor_executor",
         ":executor",
         ":protobuf_matchers",
@@ -990,7 +1014,9 @@ tff_cc_cpu_gpu_test(
         ":tensorflow_executor",
         ":value_test_utils",
         "//tensorflow_federated/cc/common_libs:oss_test_main",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
+        "//tensorflow_federated/proto/v0:data_type_cc_proto",
         "//tensorflow_federated/proto/v0:executor_cc_proto",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log:check",
@@ -1008,6 +1034,43 @@ tff_cc_cpu_gpu_test(
         "@org_tensorflow//tensorflow/core:tensorflow",
         "@org_tensorflow//tensorflow/core/platform:status",
         "@org_tensorflow//tensorflow/core/platform:tstring",
+    ],
+)
+
+cc_library(
+    name = "tensorflow_utils",
+    srcs = ["tensorflow_utils.cc"],
+    hdrs = ["tensorflow_utils.h"],
+    deps = [
+        ":status_macros",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@eigen",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:portable_gif_internal",
+        "@org_tensorflow//tensorflow/core:protos_all_cc",
+    ],
+)
+
+cc_test(
+    name = "tensorflow_utils_test",
+    srcs = ["tensorflow_utils_test.cc"],
+    deps = [
+        ":array_shape_test_utils",
+        ":array_test_utils",
+        ":status_matchers",
+        ":tensorflow_utils",
+        "//tensorflow_federated/cc/common_libs:oss_test_main",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
+        "//tensorflow_federated/proto/v0:computation_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@eigen",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:portable_gif_internal",
+        "@org_tensorflow//tensorflow/core/framework:tensor_testutil",
     ],
 )
 
@@ -1076,6 +1139,7 @@ cc_library(
         ":dataset_conversions",
         ":protobuf_matchers",
         ":status_macros",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
         "//tensorflow_federated/proto/v0:data_type_cc_proto",
         "//tensorflow_federated/proto/v0:executor_cc_proto",
@@ -1137,6 +1201,7 @@ cc_library(
         ":status_macros",
         ":tensor_serialization",
         ":threading",
+        ":xla_utils",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
@@ -1162,18 +1227,13 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "tensorflow_utils",
-    srcs = ["tensorflow_utils.cc"],
-    hdrs = ["tensorflow_utils.h"],
-    deps = ["@com_google_absl//absl/strings"],
-)
-
 tff_cc_cpu_gpu_test(
     name = "xla_executor_test",
     srcs = ["xla_executor_test.cc"],
     args = ["--tff_xla_executor_test_platform=Host"],
     deps = [
+        ":array_shape_test_utils",
+        ":array_test_utils",
         ":executor",
         ":protobuf_matchers",
         ":status_macros",
@@ -1182,6 +1242,7 @@ tff_cc_cpu_gpu_test(
         ":value_test_utils",
         ":xla_executor",
         "//tensorflow_federated/cc/common_libs:oss_test_main",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
         "//tensorflow_federated/proto/v0:data_type_cc_proto",
         "@com_google_absl//absl/flags:flag",
@@ -1208,6 +1269,8 @@ cc_test(
     args = ["--tff_xla_executor_test_platform=CUDA"],
     tags = ["requires-gpu-nvidia"],
     deps = [
+        ":array_shape_test_utils",
+        ":array_test_utils",
         ":executor",
         ":protobuf_matchers",
         ":status_macros",
@@ -1216,6 +1279,7 @@ cc_test(
         ":value_test_utils",
         ":xla_executor",
         "//tensorflow_federated/cc/common_libs:oss_test_main",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
         "//tensorflow_federated/proto/v0:computation_cc_proto",
         "//tensorflow_federated/proto/v0:data_type_cc_proto",
         "@com_google_absl//absl/flags:flag",
@@ -1235,5 +1299,43 @@ cc_test(
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core/platform:statusor",
+    ],
+)
+
+cc_library(
+    name = "xla_utils",
+    srcs = ["xla_utils.cc"],
+    hdrs = ["xla_utils.h"],
+    deps = [
+        ":status_macros",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@org_tensorflow//tensorflow/compiler/xla:literal",
+        "@org_tensorflow//tensorflow/compiler/xla:shape_util",
+        "@org_tensorflow//tensorflow/compiler/xla:types",
+    ],
+)
+
+cc_test(
+    name = "xla_utils_test",
+    srcs = ["xla_utils_test.cc"],
+    deps = [
+        ":array_shape_test_utils",
+        ":array_test_utils",
+        ":status_matchers",
+        ":xla_utils",
+        "//tensorflow_federated/cc/common_libs:oss_test_main",
+        "//tensorflow_federated/proto/v0:array_cc_proto",
+        "//tensorflow_federated/proto/v0:computation_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@eigen",
+        "@org_tensorflow//tensorflow/compiler/xla:literal",
+        "@org_tensorflow//tensorflow/compiler/xla:literal_util",
+        "@org_tensorflow//tensorflow/compiler/xla:shape_util",
+        "@org_tensorflow//tensorflow/compiler/xla:types",
+        "@org_tensorflow//tensorflow/compiler/xla:xla_data_proto_cc",
     ],
 )

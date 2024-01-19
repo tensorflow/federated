@@ -29,27 +29,53 @@ TestNamedTuple = collections.namedtuple('TestTuple', ['x', 'y'])
 
 class ZeroOrOneArgFnToBuildingBlockTest(parameterized.TestCase):
 
-  # pyformat: disable
   @parameterized.named_parameters(
-      ('nested_fn_same',
-       lambda f, x: f(f(x)),
-       computation_types.StructType([
-           ('f', computation_types.FunctionType(np.int32, np.int32)),
-           ('x', np.int32)]),
-       '(FEDERATED_foo -> (let fc_FEDERATED_symbol_0=FEDERATED_foo.f(FEDERATED_foo.x),fc_FEDERATED_symbol_1=FEDERATED_foo.f(fc_FEDERATED_symbol_0) in fc_FEDERATED_symbol_1))'),
-      ('nested_fn_different',
-       lambda f, g, x: f(g(x)),
-       computation_types.StructType([
-           ('f', computation_types.FunctionType(np.int32, np.int32)),
-           ('g', computation_types.FunctionType(np.int32, np.int32)),
-           ('x', np.int32)]),
-       '(FEDERATED_foo -> (let fc_FEDERATED_symbol_0=FEDERATED_foo.g(FEDERATED_foo.x),fc_FEDERATED_symbol_1=FEDERATED_foo.f(fc_FEDERATED_symbol_0) in fc_FEDERATED_symbol_1))'),
-      ('selection',
-       lambda x: (x[1], x[0]),
-       computation_types.StructType([np.int32, np.int32]),
-       '(FEDERATED_foo -> <FEDERATED_foo[1],FEDERATED_foo[0]>)'),
-      ('constant', lambda: 'stuff', None, '( -> (let fc_FEDERATED_symbol_0=comp#'))
-  # pyformat: enable
+      (
+          'nested_fn_same',
+          lambda f, x: f(f(x)),
+          computation_types.StructType([
+              ('f', computation_types.FunctionType(np.int32, np.int32)),
+              ('x', np.int32),
+          ]),
+          (
+              '(FEDERATED_foo -> (let '
+              'fc_FEDERATED_symbol_0=FEDERATED_foo.f(FEDERATED_foo.x),'
+              'fc_FEDERATED_symbol_1=FEDERATED_foo.f(fc_FEDERATED_symbol_0)'
+              ' in fc_FEDERATED_symbol_1))'
+          ),
+      ),
+      (
+          'nested_fn_different',
+          lambda f, g, x: f(g(x)),
+          computation_types.StructType([
+              ('f', computation_types.FunctionType(np.int32, np.int32)),
+              ('g', computation_types.FunctionType(np.int32, np.int32)),
+              ('x', np.int32),
+          ]),
+          (
+              '(FEDERATED_foo -> (let '
+              'fc_FEDERATED_symbol_0=FEDERATED_foo.g(FEDERATED_foo.x),'
+              'fc_FEDERATED_symbol_1=FEDERATED_foo.f(fc_FEDERATED_symbol_0)'
+              ' in fc_FEDERATED_symbol_1))'
+          ),
+      ),
+      (
+          'selection',
+          lambda x: (x[1], x[0]),
+          computation_types.StructType([np.int32, np.int32]),
+          '(FEDERATED_foo -> <FEDERATED_foo[1],FEDERATED_foo[0]>)',
+      ),
+      (
+          'constant',
+          lambda: 'stuff',
+          None,
+          (
+              '( -> (let '
+              "fc_FEDERATED_symbol_0=( -> b'stuff')()"
+              ' in fc_FEDERATED_symbol_0))'
+          ),
+      ),
+  )
   def test_returns_result(self, fn, parameter_type, fn_str):
     parameter_name = 'foo' if parameter_type is not None else None
     fn = function_utils.wrap_as_zero_or_one_arg_callable(fn, parameter_type)
@@ -58,7 +84,7 @@ class ZeroOrOneArgFnToBuildingBlockTest(parameterized.TestCase):
             fn, parameter_name, parameter_type, context_stack_impl.context_stack
         )
     )
-    self.assertStartsWith(str(result), fn_str)
+    self.assertEqual(str(result), fn_str)
 
   # pyformat: disable
   @parameterized.named_parameters(

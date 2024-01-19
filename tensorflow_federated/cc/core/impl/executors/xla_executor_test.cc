@@ -42,12 +42,15 @@ limitations under the License
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow/core/platform/statusor.h"
+#include "tensorflow_federated/cc/core/impl/executors/array_shape_test_utils.h"
+#include "tensorflow_federated/cc/core/impl/executors/array_test_utils.h"
 #include "tensorflow_federated/cc/core/impl/executors/executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/protobuf_matchers.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_matchers.h"
 #include "tensorflow_federated/cc/core/impl/executors/type_test_utils.h"
 #include "tensorflow_federated/cc/core/impl/executors/value_test_utils.h"
+#include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
 #include "tensorflow_federated/proto/v0/data_type.pb.h"
 
@@ -309,7 +312,7 @@ TEST_F(XLAExecutorTest, CreateSelectionOOBImmediate) {
                HasSubstr("Attempted to access index 0 of a 0-length struct.")));
 }
 
-TEST_F(XLAExecutorTest, CreateValueComputationNonFunctionalTypeFails) {
+TEST_F(XLAExecutorTest, CreateValueComputationTensorNonFunctionalTypeFails) {
   xla::XlaBuilder builder("float_unk_shape_tensor_identity");
   xla::Parameter(&builder, 0, xla::ShapeUtil::MakeScalarShape(xla::F32), "x");
   tensorflow::StatusOr<xla::XlaComputation> xla_computation = builder.Build();
@@ -335,7 +338,8 @@ TEST_F(XLAExecutorTest, CreateValueComputationNonFunctionalTypeFails) {
                                     HasSubstr("non-functional type")));
 }
 
-TEST_F(XLAExecutorTest, CreateValueComputationMismatchedTypeAndBindingFails) {
+TEST_F(XLAExecutorTest,
+       CreateValueComputationTensorMismatchedTypeAndBindingFails) {
   xla::XlaBuilder builder("float_unk_shape_tensor_identity");
   xla::Parameter(&builder, 0, xla::ShapeUtil::MakeScalarShape(xla::F32), "x");
   tensorflow::StatusOr<xla::XlaComputation> xla_computation = builder.Build();
@@ -418,6 +422,22 @@ TEST_F(XLAExecutorTest, CreateValueComputationTensorParameterUnknownRankFails) {
   CheckMaterializeStatusIs(
       embedded_fn, StatusIs(absl::StatusCode::kInvalidArgument,
                             HasSubstr("Tensor parameters of unknown rank")));
+}
+
+TEST_F(XLAExecutorTest, CreateValueComputationLiteralReturnsResult) {
+  const v0::DataType dtype = v0::DataType::DT_INT32;
+  v0::ArrayShape shape_pb = testing::CreateArrayShape({});
+  auto values = {1};
+  v0::Array array_pb =
+      TFF_ASSERT_OK(testing::CreateArray(dtype, shape_pb, values));
+  v0::Computation computation_pb = testing::LiteralComputation(array_pb);
+  v0::Value value_pb = testing::ComputationV(computation_pb);
+
+  const OwnedValueId& embedded_fn =
+      TFF_ASSERT_OK(test_executor_->CreateValue(value_pb));
+
+  const v0::Value& expected_pb = TensorV(1);
+  CheckMaterializeEqual(embedded_fn, expected_pb);
 }
 
 TEST_F(XLAExecutorTest, CreateAndMaterializeNoArgCallSingleTensor) {

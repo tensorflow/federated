@@ -48,6 +48,7 @@ limitations under the License
 #include "tensorflow_federated/cc/core/impl/executors/dataset_conversions.h"
 #include "tensorflow_federated/cc/core/impl/executors/protobuf_matchers.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
+#include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
 #include "tensorflow_federated/proto/v0/data_type.pb.h"
 #include "tensorflow_federated/proto/v0/executor.pb.h"
@@ -360,6 +361,12 @@ inline v0::Computation PlacementComputation(std::string_view uri) {
   v0::Computation computation_pb;
   computation_pb.mutable_placement()->mutable_uri()->assign(uri.data(),
                                                             uri.size());
+  return computation_pb;
+}
+
+inline v0::Computation LiteralComputation(v0::Array array_pb) {
+  v0::Computation computation_pb;
+  computation_pb.mutable_literal()->mutable_value()->Swap(&array_pb);
   return computation_pb;
 }
 
