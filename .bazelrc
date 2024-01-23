@@ -2,6 +2,7 @@
 #
 # See https://docs.bazel.build/versions/master/user-manual.html#config for
 # details on the various configuration options.
+# Remove this line.
 
 # Enable verbose failures for testing only.
 build --verbose_failures
