@@ -180,7 +180,7 @@ class Type(metaclass=abc.ABCMeta):
     Raises:
       NotImplementedError: If not implemented in the derived class.
     """
-    raise NotImplementedError
+    return NotImplemented
 
   def __ne__(self, other):
     return not self == other
