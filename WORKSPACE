@@ -31,7 +31,7 @@ git_repository(
 git_repository(
     name = "com_google_protobuf",
     remote = "https://github.com/protocolbuffers/protobuf.git",
-    tag = "v3.21.9",
+    tag = "v25.3",
 )
 
 git_repository(
