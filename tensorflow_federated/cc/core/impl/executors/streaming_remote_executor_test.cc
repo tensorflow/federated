@@ -25,7 +25,6 @@ limitations under the License
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/text_format.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
@@ -34,6 +33,7 @@ limitations under the License
 #include "absl/strings/substitute.h"
 #include "absl/synchronization/notification.h"
 #include "absl/time/time.h"
+#include "google/protobuf/text_format.h"
 #include "tensorflow_federated/cc/core/impl/executors/cardinalities.h"
 #include "tensorflow_federated/cc/core/impl/executors/executor.h"
 #include "tensorflow_federated/cc/core/impl/executors/federated_intrinsics.h"

@@ -25,6 +25,7 @@ limitations under the License
 #include "googletest/include/gtest/gtest.h"
 #include "absl/flags/flag.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/text_format.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow_federated/cc/core/impl/executors/session_provider.h"
