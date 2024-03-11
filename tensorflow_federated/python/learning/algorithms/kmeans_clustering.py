@@ -300,7 +300,7 @@ def build_fed_kmeans(
       Note that this data shape should be unbatched, as this algorithm does not
       currently support batched data points.
     random_seed: A tuple of two integers used to seed the initialization phase.
-    distributor: An optional `tff.learning.tekmplates.DistributionProcess` that
+    distributor: An optional `tff.learning.templates.DistributionProcess` that
       broadcasts the centroids on the server to the clients. If set to `None`,
       the distributor is constructed via
       `tff.learning.templates.build_broadcast_process`.
