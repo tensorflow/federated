@@ -25,7 +25,7 @@ The TFF API that is exposed by the
 this documentation is generated with
 [TensorFlow Docs](https://github.com/tensorflow/docs) using the logic defined by
 the
-[explicit_package_contents_filter](https://github.com/tensorflow/docs/blob/master/tools/tensorflow_docs/api_generator/public_api.py;l=156)
+[explicit_package_contents_filter](https://github.com/tensorflow/docs/blob/master/tools/tensorflow_docs/api_generator/public_api.py#L214)
 
 #### Private TFF API
 
