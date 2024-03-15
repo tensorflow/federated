@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from absl.testing import absltest
+from absl.testing import parameterized
 import numpy as np
 
 from tensorflow_federated.proto.v0 import computation_pb2 as pb
@@ -485,6 +486,1094 @@ class ComputationBuildingBlocksTest(absltest.TestCase):
     # Note: This is not an equality comparison because ser/de is not an identity
     # transform: it will drop the container from `StructWithPythonType`.
     target.type_signature.check_assignable_from(deserialized.type_signature)
+
+
+class ReferenceTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    reference = building_blocks.Reference('reference', type_signature)
+    other = building_blocks.Reference('reference', type_signature)
+
+    self.assertIsNot(reference, other)
+    self.assertEqual(reference, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_name',
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Reference(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, reference, other):
+    self.assertIsNot(reference, other)
+    self.assertNotEqual(reference, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    reference = building_blocks.Reference('reference', type_signature)
+    other = building_blocks.Reference('reference', type_signature)
+
+    self.assertEqual(reference, other)
+    self.assertEqual(hash(reference), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_name',
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Reference(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Reference(
+              'reference', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, reference, other):
+    self.assertNotEqual(reference, other)
+    self.assertNotEqual(hash(reference), hash(other))
+
+
+class SelectionTest(parameterized.TestCase):
+
+  @parameterized.named_parameters(
+      (
+          'name',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType({'x': np.int32})
+              ),
+              name='x',
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType({'x': np.int32})
+              ),
+              name='x',
+          ),
+      ),
+      (
+          'index',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+      ),
+  )
+  def test_eq_returns_true(self, selection, other):
+    self.assertIsNot(selection, other)
+    self.assertEqual(selection, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_source',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'different', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+      ),
+      (
+          'different_name',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source',
+                  computation_types.StructType({'x': np.int32, 'y': np.int32}),
+              ),
+              name='x',
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source',
+                  computation_types.StructType({'x': np.int32, 'y': np.int32}),
+              ),
+              name='y',
+          ),
+      ),
+      (
+          'different_index',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32, np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32, np.int32])
+              ),
+              index=1,
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, selection, other):
+    self.assertIsNot(selection, other)
+    self.assertNotEqual(selection, other)
+
+  @parameterized.named_parameters(
+      (
+          'name',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType({'x': np.int32})
+              ),
+              name='x',
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType({'x': np.int32})
+              ),
+              name='x',
+          ),
+      ),
+      (
+          'index',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+      ),
+  )
+  def test_hash_returns_same_value(self, selection, other):
+    self.assertEqual(selection, other)
+    self.assertEqual(hash(selection), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_source',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'different', computation_types.StructType([np.int32])
+              ),
+              index=0,
+          ),
+      ),
+      (
+          'different_name',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source',
+                  computation_types.StructType({'x': np.int32, 'y': np.int32}),
+              ),
+              name='x',
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source',
+                  computation_types.StructType({'x': np.int32, 'y': np.int32}),
+              ),
+              name='y',
+          ),
+      ),
+      (
+          'different_index',
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32, np.int32])
+              ),
+              index=0,
+          ),
+          building_blocks.Selection(
+              building_blocks.Reference(
+                  'source', computation_types.StructType([np.int32, np.int32])
+              ),
+              index=1,
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, selection, other):
+    self.assertNotEqual(selection, other)
+    self.assertNotEqual(hash(selection), hash(other))
+
+
+class StructTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    element = building_blocks.Reference('element', type_signature)
+    struct = building_blocks.Struct([element], container_type=list)
+    other = building_blocks.Struct([element], container_type=list)
+
+    self.assertIsNot(struct, other)
+    self.assertEqual(struct, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_elements',
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'different', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+      ),
+      (
+          'different_container_type',
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=tuple,
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, data, other):
+    self.assertIsNot(data, other)
+    self.assertNotEqual(data, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    element = building_blocks.Reference('element', type_signature)
+    struct = building_blocks.Struct([element], container_type=list)
+    other = building_blocks.Struct([element], container_type=list)
+
+    self.assertEqual(struct, other)
+    self.assertEqual(hash(struct), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_elements',
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'different', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+      ),
+      (
+          'different_container_type',
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=list,
+          ),
+          building_blocks.Struct(
+              [
+                  building_blocks.Reference(
+                      'element', computation_types.TensorType(np.int32)
+                  )
+              ],
+              container_type=tuple,
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, struct, other):
+    self.assertNotEqual(struct, other)
+    self.assertNotEqual(hash(struct), hash(other))
+
+
+class CallTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    fn = building_blocks.Reference(
+        'fn', computation_types.FunctionType(type_signature, type_signature)
+    )
+    arg = building_blocks.Reference('arg', type_signature)
+    call = building_blocks.Call(fn, arg)
+    other = building_blocks.Call(fn, arg)
+
+    self.assertIsNot(call, other)
+    self.assertEqual(call, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_fn',
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'different',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_arg',
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, call, other):
+    self.assertIsNot(call, other)
+    self.assertNotEqual(call, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    fn = building_blocks.Reference(
+        'fn', computation_types.FunctionType(type_signature, type_signature)
+    )
+    arg = building_blocks.Reference('arg', type_signature)
+    call = building_blocks.Call(fn, arg)
+    other = building_blocks.Call(fn, arg)
+
+    self.assertEqual(call, other)
+    self.assertEqual(hash(call), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_fn',
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'different',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_arg',
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'arg', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Call(
+              building_blocks.Reference(
+                  'fn',
+                  computation_types.FunctionType(
+                      computation_types.TensorType(np.int32),
+                      computation_types.TensorType(np.int32),
+                  ),
+              ),
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, call, other):
+    self.assertNotEqual(call, other)
+    self.assertNotEqual(hash(call), hash(other))
+
+
+class LambdaTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    result = building_blocks.Reference('result', type_signature)
+    fn = building_blocks.Lambda('parameter', type_signature, result)
+    other = building_blocks.Lambda('parameter', type_signature, result)
+
+    self.assertIsNot(fn, other)
+    self.assertEqual(fn, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_parameter_name',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'different',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_parameter_type',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.float32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_result',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, fn, other):
+    self.assertIsNot(fn, other)
+    self.assertNotEqual(fn, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    result = building_blocks.Reference('result', type_signature)
+    fn = building_blocks.Lambda('parameter', type_signature, result)
+    other = building_blocks.Lambda('parameter', type_signature, result)
+
+    self.assertEqual(fn, other)
+    self.assertEqual(hash(fn), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_parameter_name',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'different',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_parameter_type',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.float32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_result',
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Lambda(
+              'parameter',
+              computation_types.TensorType(np.int32),
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, fn, other):
+    self.assertNotEqual(fn, other)
+    self.assertNotEqual(hash(fn), hash(other))
+
+
+class BlockTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    local = building_blocks.Reference('local', type_signature)
+    result = building_blocks.Reference('result', type_signature)
+    block = building_blocks.Block([('x', local)], result)
+    other = building_blocks.Block([('x', local)], result)
+
+    self.assertIsNot(block, other)
+    self.assertEqual(block, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_locals',
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Block(
+              [(
+                  'different',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_result',
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, block, other):
+    self.assertIsNot(block, other)
+    self.assertNotEqual(block, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    local = building_blocks.Reference('local', type_signature)
+    result = building_blocks.Reference('result', type_signature)
+    block = building_blocks.Block([('x', local)], result)
+    other = building_blocks.Block([('x', local)], result)
+
+    self.assertEqual(block, other)
+    self.assertEqual(hash(block), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_locals',
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Block(
+              [(
+                  'different',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+      (
+          'different_result',
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'result', computation_types.TensorType(np.int32)
+              ),
+          ),
+          building_blocks.Block(
+              [(
+                  'x',
+                  building_blocks.Data(
+                      'local', computation_types.TensorType(np.int32)
+                  ),
+              )],
+              building_blocks.Reference(
+                  'different', computation_types.TensorType(np.int32)
+              ),
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, block, other):
+    self.assertNotEqual(block, other)
+    self.assertNotEqual(hash(block), hash(other))
+
+
+class IntrinsicTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    intrinsic = building_blocks.Intrinsic('intrinsic', type_signature)
+    other = building_blocks.Intrinsic('intrinsic', type_signature)
+
+    self.assertIsNot(intrinsic, other)
+    self.assertEqual(intrinsic, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_uri',
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Intrinsic(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, intrinsic, other):
+    self.assertIsNot(intrinsic, other)
+    self.assertNotEqual(intrinsic, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    intrinsic = building_blocks.Intrinsic('intrinsic', type_signature)
+    other = building_blocks.Intrinsic('intrinsic', type_signature)
+
+    self.assertEqual(intrinsic, other)
+    self.assertEqual(hash(intrinsic), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_uri',
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Intrinsic(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.int32)
+          ),
+          building_blocks.Intrinsic(
+              'intrinsic', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, intrinsic, other):
+    self.assertNotEqual(intrinsic, other)
+    self.assertNotEqual(hash(intrinsic), hash(other))
+
+
+class DataTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_signature = computation_types.TensorType(np.int32)
+    data = building_blocks.Data('data', type_signature)
+    other = building_blocks.Data('data', type_signature)
+
+    self.assertIsNot(data, other)
+    self.assertEqual(data, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_uri',
+          building_blocks.Data('data', computation_types.TensorType(np.int32)),
+          building_blocks.Data(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Data('data', computation_types.TensorType(np.int32)),
+          building_blocks.Data(
+              'data', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, data, other):
+    self.assertIsNot(data, other)
+    self.assertNotEqual(data, other)
+
+  def test_hash_returns_same_value(self):
+    type_signature = computation_types.TensorType(np.int32)
+    data = building_blocks.Data('data', type_signature)
+    other = building_blocks.Data('data', type_signature)
+
+    self.assertEqual(data, other)
+    self.assertEqual(hash(data), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_uri',
+          building_blocks.Data('data', computation_types.TensorType(np.int32)),
+          building_blocks.Data(
+              'different', computation_types.TensorType(np.int32)
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.Data('data', computation_types.TensorType(np.int32)),
+          building_blocks.Data(
+              'data', computation_types.TensorType(np.float32)
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, data, other):
+    self.assertNotEqual(data, other)
+    self.assertNotEqual(hash(data), hash(other))
+
+
+class CompiledComputationTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    type_spec = computation_types.TensorType(np.int32)
+    proto = computation_factory.create_lambda_identity(type_spec)
+    type_signature = computation_types.FunctionType(type_spec, type_spec)
+    compiled = building_blocks.CompiledComputation(
+        proto, name='compiled', type_signature=type_signature
+    )
+    other = building_blocks.CompiledComputation(
+        proto, name='compiled', type_signature=type_signature
+    )
+
+    self.assertIsNot(compiled, other)
+    self.assertEqual(compiled, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_proto',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.float32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+      ),
+      (
+          'different_name',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='different',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(
+                  np.float32, np.float32
+              ),
+          ),
+      ),
+  )
+  def test_eq_returns_false(self, compiled, other):
+    self.assertIsNot(compiled, other)
+    self.assertNotEqual(compiled, other)
+
+  def test_hash_returns_same_value(self):
+    type_spec = computation_types.TensorType(np.int32)
+    proto = computation_factory.create_lambda_identity(type_spec)
+    type_signature = computation_types.FunctionType(type_spec, type_spec)
+    compiled = building_blocks.CompiledComputation(
+        proto, name='compiled', type_signature=type_signature
+    )
+    other = building_blocks.CompiledComputation(
+        proto, name='compiled', type_signature=type_signature
+    )
+
+    self.assertEqual(compiled, other)
+    self.assertEqual(hash(compiled), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_proto',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.float32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+      ),
+      (
+          'different_name',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='different',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+      ),
+      (
+          'different_type_signature',
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(np.int32, np.int32),
+          ),
+          building_blocks.CompiledComputation(
+              computation_factory.create_lambda_identity(
+                  computation_types.TensorType(np.int32)
+              ),
+              name='compiled',
+              type_signature=computation_types.FunctionType(
+                  np.float32, np.float32
+              ),
+          ),
+      ),
+  )
+  def test_hash_returns_different_value(self, compiled, other):
+    self.assertNotEqual(compiled, other)
+    self.assertNotEqual(hash(compiled), hash(other))
+
+
+class PlacementTest(parameterized.TestCase):
+
+  def test_eq_returns_true(self):
+    placement = building_blocks.Placement(placements.CLIENTS)
+    other = building_blocks.Placement(placements.CLIENTS)
+
+    self.assertIsNot(placement, other)
+    self.assertEqual(placement, other)
+
+  @parameterized.named_parameters(
+      (
+          'different_literal',
+          building_blocks.Placement(placements.CLIENTS),
+          building_blocks.Placement(placements.SERVER),
+      ),
+  )
+  def test_eq_returns_false(self, placement, other):
+    self.assertIsNot(placement, other)
+    self.assertNotEqual(placement, other)
+
+  def test_hash_returns_same_value(self):
+    placement = building_blocks.Placement(placements.CLIENTS)
+    other = building_blocks.Placement(placements.CLIENTS)
+
+    self.assertEqual(placement, other)
+    self.assertEqual(hash(placement), hash(other))
+
+  @parameterized.named_parameters(
+      (
+          'different_literal',
+          building_blocks.Placement(placements.CLIENTS),
+          building_blocks.Placement(placements.SERVER),
+      ),
+  )
+  def test_hash_returns_different_value(self, placement, other):
+    self.assertNotEqual(placement, other)
+    self.assertNotEqual(hash(placement), hash(other))
 
 
 class RepresentationTest(absltest.TestCase):
