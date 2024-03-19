@@ -1059,7 +1059,6 @@ class DivisiveForceAlignAndSplitByIntrinsicsTest(absltest.TestCase):
             ),
             index=0,
         ),
-        preapply_modulus=False,
     )
     comp = building_blocks.Lambda('arg', arg_type, intrinsic_call)
 
@@ -1679,7 +1678,6 @@ class DivisiveForceAlignAndSplitByIntrinsicsTest(absltest.TestCase):
                 ),
                 index=0,
             ),
-            preapply_modulus=False,
         )
     )
     block_locals = [

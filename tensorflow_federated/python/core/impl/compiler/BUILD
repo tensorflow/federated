@@ -38,7 +38,6 @@ py_library(
     deps = [
         ":building_blocks",
         ":intrinsic_defs",
-        ":tensorflow_computation_factory",
         ":transformation_utils",
         "//tensorflow_federated/python/common_libs:py_typecheck",
         "//tensorflow_federated/python/common_libs:structure",

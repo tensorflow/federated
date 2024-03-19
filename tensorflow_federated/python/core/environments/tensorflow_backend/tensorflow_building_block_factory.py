@@ -121,7 +121,6 @@ def create_null_federated_secure_modular_sum():
           building_blocks.Struct([]), placements.CLIENTS
       ),
       building_blocks.Struct([]),
-      preapply_modulus=False,
   )
 
 

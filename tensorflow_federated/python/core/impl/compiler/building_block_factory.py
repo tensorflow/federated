@@ -19,13 +19,10 @@ import random
 import string
 from typing import Optional, Union
 
-import tensorflow as tf
-
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
 from tensorflow_federated.python.core.impl.compiler import building_blocks
 from tensorflow_federated.python.core.impl.compiler import intrinsic_defs
-from tensorflow_federated.python.core.impl.compiler import tensorflow_computation_factory
 from tensorflow_federated.python.core.impl.compiler import transformation_utils
 from tensorflow_federated.python.core.impl.types import computation_types
 from tensorflow_federated.python.core.impl.types import placements
@@ -759,49 +756,23 @@ def create_federated_max(
   return building_blocks.Call(intrinsic, value)
 
 
-def _cast(
-    comp: building_blocks.ComputationBuildingBlock,
-    type_signature: computation_types.TensorType,
-) -> building_blocks.Call:
-  """Casts `comp` to the provided type."""
-
-  def cast_fn(value):
-
-    def cast_element(element, type_signature: computation_types.TensorType):
-      return tf.cast(element, type_signature.dtype)
-
-    if isinstance(comp.type_signature, computation_types.StructType):
-      return structure.map_structure(cast_element, value, type_signature)
-    return cast_element(value, type_signature)
-
-  cast_proto, cast_type = tensorflow_computation_factory.create_unary_operator(
-      cast_fn, comp.type_signature
-  )
-  cast_comp = building_blocks.CompiledComputation(
-      cast_proto, type_signature=cast_type
-  )
-  return building_blocks.Call(cast_comp, comp)
-
-
 def create_federated_secure_modular_sum(
     value: building_blocks.ComputationBuildingBlock,
     modulus: building_blocks.ComputationBuildingBlock,
-    preapply_modulus: bool = True,
 ) -> building_blocks.ComputationBuildingBlock:
   r"""Creates a called secure modular sum.
+
+            Call
+           /    \
+  Intrinsic      [Comp, Comp]
 
   Args:
     value: A `building_blocks.ComputationBuildingBlock` to use as the value.
     modulus: A `building_blocks.ComputationBuildingBlock` to use as the
       `modulus` value.
-    preapply_modulus: Whether or not to preapply `modulus` to the input `value`.
-      This can be `False` if `value` is guaranteed to already be in range.
 
   Returns:
-    A computation building block which invokes `federated_secure_modular_sum`.
-
-  Raises:
-    TypeError: If any of the types do not match.
+    A `building_blocks.Call`.
   """
   py_typecheck.check_type(value, building_blocks.ComputationBuildingBlock)
   py_typecheck.check_type(modulus, building_blocks.ComputationBuildingBlock)
@@ -820,50 +791,8 @@ def create_federated_secure_modular_sum(
       intrinsic_defs.FEDERATED_SECURE_MODULAR_SUM.uri, intrinsic_type
   )
 
-  if not preapply_modulus:
-    values = building_blocks.Struct([value, modulus])
-    return building_blocks.Call(intrinsic, values)
-
-  # Pre-insert a modulus to ensure the the input values are within range.
-  mod_ref = building_blocks.Reference('mod', modulus.type_signature)
-
-  # In order to run `tf.math.floormod`, our modulus and value must be the same
-  # type.
-  casted_mod = _cast(
-      mod_ref,
-      value.type_signature.member,  # pytype: disable=attribute-error
-  )
-  # Since in the preapply_modulus case the modulus is expected to be available
-  # at the client as well as at the server for aggregation, we need to broadcast
-  # the modulus to be able to avoid repeating the modulus value (which could
-  # cause accuracy issues if the modulus is non-deterministic).
-  casted_mod_at_server = create_federated_value(casted_mod, placements.SERVER)
-  value_with_mod = create_federated_zip(
-      building_blocks.Struct(
-          [value, create_federated_broadcast(casted_mod_at_server)]
-      )
-  )
-
-  def structural_modulus(value, mod):
-    return structure.map_structure(tf.math.floormod, value, mod)
-
-  structural_modulus_proto, structural_modulus_type = (
-      tensorflow_computation_factory.create_binary_operator(
-          structural_modulus,
-          value.type_signature.member,  # pytype: disable=attribute-error
-          casted_mod.type_signature,
-      )
-  )
-  structural_modulus_tf = building_blocks.CompiledComputation(
-      structural_modulus_proto, type_signature=structural_modulus_type
-  )
-  value_modded = create_federated_map_or_apply(
-      structural_modulus_tf, value_with_mod
-  )
-  values = building_blocks.Struct([value_modded, mod_ref])
-  return building_blocks.Block(
-      [('mod', modulus)], building_blocks.Call(intrinsic, values)
-  )
+  values = building_blocks.Struct([value, modulus])
+  return building_blocks.Call(intrinsic, values)
 
 
 def create_federated_secure_sum(
