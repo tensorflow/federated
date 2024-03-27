@@ -2,11 +2,11 @@
 #
 # If you add a *new* dependency and it is required by the TensorFlow Federated
 # package, also add the dependency to
-# https://github.com/tensorflow/federated/blob/main/tensorflow_federated/tools/development/setup.py.
+# https://github.com/tensorflow/federated/blob/main/pyproject.toml.
 #
 # If you update the version of an *existing* dependency and it is required by
 # the TensorFlow Federated package, also update the version of the dependency in
-# https://github.com/tensorflow/federated/blob/main/tensorflow_federated/tools/development/setup.py.
+# https://github.com/tensorflow/federated/blob/main/pyproject.toml.
 #
 # *   For packages that have a stable release, we use a version that is
 #     compatible with that release (e.g. `~=x.y`). See

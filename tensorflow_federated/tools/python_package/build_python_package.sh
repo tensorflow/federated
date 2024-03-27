@@ -63,7 +63,7 @@ main() {
   # Create a working directory.
   local temp_dir="$(mktemp -d)"
   trap "rm -rf ${temp_dir}" EXIT
-  cp -LR "tensorflow_federated" "${temp_dir}"
+  cp -LR "." "${temp_dir}"
   pushd "${temp_dir}"
 
   # Create a Python environment.
@@ -72,13 +72,13 @@ main() {
   python --version
   pip install --upgrade "pip"
   pip --version
+  # The `plat-name` manylinux tag should match GLIBC version returned by
+  # `ldd --version`.
   ldd --version
 
   # Build the Python package.
-  pip install --upgrade setuptools wheel
-  # The manylinux tag should match GLIBC version returned by `ldd --version`.
-  python "tensorflow_federated/tools/python_package/setup.py" bdist_wheel \
-      --plat-name=manylinux_2_31_x86_64
+  pip install --upgrade build
+  python -m build --wheel
   cp "${temp_dir}/dist/"* "${output_dir}"
 
   # Check Python package sizes.
