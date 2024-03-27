@@ -52,6 +52,7 @@ limitations under the License
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
 #include "tensorflow_federated/cc/core/impl/executors/tensor_serialization.h"
 #include "tensorflow_federated/cc/core/impl/executors/threading.h"
+#include "tensorflow_federated/cc/core/impl/executors/xla_utils.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
 
 // clang-format off
@@ -554,6 +555,19 @@ class XLAExecutor : public ExecutorBase<ValueFuture> {
         return XLAExecutorValue(std::make_shared<Computation>(
             std::move(*computation_handle), arg_binding, result_binding,
             comp_pb.type()));
+      }
+      case v0::Computation::kLiteral: {
+        absl::StatusOr<std::unique_ptr<xla::GlobalData>> data =
+            xla_client_->TransferToServer(
+                TFF_TRY(LiteralFromArray(comp_pb.literal().value())));
+        if (!data.ok()) {
+          return absl::InvalidArgumentError(absl::StrCat(
+              "Failed to transfer XLA literal to local server. Message: ",
+              data.status()));
+        }
+        return XLAExecutorValue(std::move(data.value()),
+                                static_cast<tensorflow::DataType>(
+                                    comp_pb.literal().value().dtype()));
       }
       default:
         return absl::InvalidArgumentError(absl::StrCat(

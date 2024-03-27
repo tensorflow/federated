@@ -171,13 +171,11 @@ py_library(
     name = "value_impl",
     srcs = ["value_impl.py"],
     deps = [
-        "//tensorflow_federated/proto/v0:computation_py_pb2",
         "//tensorflow_federated/python/common_libs:py_typecheck",
         "//tensorflow_federated/python/common_libs:structure",
         "//tensorflow_federated/python/core/impl/compiler:array",
         "//tensorflow_federated/python/core/impl/compiler:building_block_factory",
         "//tensorflow_federated/python/core/impl/compiler:building_blocks",
-        "//tensorflow_federated/python/core/impl/compiler:tensorflow_computation_factory",
         "//tensorflow_federated/python/core/impl/computation:computation_impl",
         "//tensorflow_federated/python/core/impl/computation:function_utils",
         "//tensorflow_federated/python/core/impl/computation:polymorphic_computation",
@@ -186,6 +184,7 @@ py_library(
         "//tensorflow_federated/python/core/impl/context_stack:symbol_binding_context",
         "//tensorflow_federated/python/core/impl/types:computation_types",
         "//tensorflow_federated/python/core/impl/types:placements",
+        "//tensorflow_federated/python/core/impl/types:type_conversions",
         "//tensorflow_federated/python/core/impl/types:typed_object",
     ],
 )

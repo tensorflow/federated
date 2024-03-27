@@ -34,6 +34,13 @@ git_repository(
     tag = "v3.21.9",
 )
 
+new_git_repository(
+    name = "eigen",
+    tag = "3.4.0",
+    remote = "https://gitlab.com/libeigen/eigen.git",
+    build_file = "//third_party/eigen:eigen.BUILD",
+)
+
 git_repository(
     name = "org_tensorflow",
     # The version of this dependency should match the version in

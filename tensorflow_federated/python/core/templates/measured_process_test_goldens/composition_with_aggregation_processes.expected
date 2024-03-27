@@ -2,11 +2,11 @@ initialize:
 
 ( -> (let
   fc_composition_initialize_symbol_0=( -> (let
-    fc__initialize_double_symbol_0=comp#1(),
+    fc__initialize_double_symbol_0=( -> 1)(),
     fc__initialize_double_symbol_1=federated_value_at_server(fc__initialize_double_symbol_0)
    in fc__initialize_double_symbol_1))(),
   fc_composition_initialize_symbol_1=( -> (let
-    fc_<lambda>_symbol_0=comp#2(),
+    fc_<lambda>_symbol_0=( -> 0)(),
     fc_<lambda>_symbol_1=federated_value_at_server(fc_<lambda>_symbol_0)
    in fc_<lambda>_symbol_1))(),
   fc_composition_initialize_symbol_2=federated_zip_at_server(<
@@ -27,7 +27,7 @@ next:
       (_double_arg -> _double_arg),
       _next_double_arg[1]
     >),
-    fc__next_double_symbol_2=comp#1(),
+    fc__next_double_symbol_2=( -> 1)(),
     fc__next_double_symbol_3=federated_value_at_server(<
       a=fc__next_double_symbol_2
     >)
@@ -44,7 +44,7 @@ next:
   >),
   fc_composition_next_symbol_1=(next_fn_arg -> (let
     fc_next_fn_symbol_0=federated_sum(next_fn_arg[1]),
-    fc_next_fn_symbol_1=comp#2(),
+    fc_next_fn_symbol_1=( -> 1)(),
     fc_next_fn_symbol_2=federated_value_at_server(fc_next_fn_symbol_1)
    in <
     state=next_fn_arg[0],

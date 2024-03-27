@@ -26,6 +26,7 @@ from tensorflow_federated.proto.v0 import executor_pb2
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
 from tensorflow_federated.python.common_libs import tracing
+from tensorflow_federated.python.core.impl.compiler import array
 from tensorflow_federated.python.core.impl.computation import computation_impl
 from tensorflow_federated.python.core.impl.executors import executor_utils
 from tensorflow_federated.python.core.impl.types import array_shape
@@ -382,10 +383,13 @@ def _deserialize_computation(
     value_proto: executor_pb2.Value,
 ) -> _DeserializeReturnType:
   """Deserializes a TFF computation."""
-  return (
-      value_proto.computation,
-      type_serialization.deserialize_type(value_proto.computation.type),  # pytype: disable=bad-return-type
-  )
+  which_value = value_proto.computation.WhichOneof('computation')
+  if which_value == 'literal':
+    value = array.from_proto(value_proto.computation.literal.value)
+  else:
+    value = value_proto.computation
+  type_spec = type_serialization.deserialize_type(value_proto.computation.type)
+  return value, type_spec
 
 
 def _tensor_for_value(value_proto: executor_pb2.Value) -> tf.Tensor:

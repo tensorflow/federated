@@ -304,6 +304,7 @@ py_library(
         "//tensorflow_federated/python/common_libs:py_typecheck",
         "//tensorflow_federated/python/common_libs:structure",
         "//tensorflow_federated/python/common_libs:tracing",
+        "//tensorflow_federated/python/core/impl/compiler:array",
         "//tensorflow_federated/python/core/impl/computation:computation_impl",
         "//tensorflow_federated/python/core/impl/types:array_shape",
         "//tensorflow_federated/python/core/impl/types:computation_types",
