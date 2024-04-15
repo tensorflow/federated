@@ -22,6 +22,23 @@ package_group(
 licenses(["notice"])
 
 cc_library(
+    name = "aggcore_executor",
+    srcs = ["aggcore_executor.cc"],
+    hdrs = ["aggcore_executor.h"],
+    # TODO: b/333708516 - Move to visibility public when ready.
+    visibility = ["//visibility:private"],
+    deps = [
+        ":executor",
+        ":federated_intrinsics",
+        "//tensorflow_federated/proto/v0:executor_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@org_tensorflow//tensorflow/core:framework",
+        "@org_tensorflow//tensorflow/core:tensorflow",
+    ],
+)
+
+cc_library(
     name = "cardinalities",
     srcs = ["cardinalities.cc"],
     hdrs = ["cardinalities.h"],
