@@ -47,6 +47,7 @@ limitations under the License
 #include "tensorflow_federated/cc/core/impl/executors/cardinalities.h"
 #include "tensorflow_federated/cc/core/impl/executors/dataset_conversions.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
+#include "tensorflow_federated/cc/core/impl/executors/tensor_serialization.h"
 #include "tensorflow_federated/cc/testing/protobuf_matchers.h"
 #include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
@@ -101,14 +102,8 @@ inline v0::Value ClientsV(const absl::Span<const v0::Value> client_values,
 template <typename... Ts>
 v0::Value TensorV(Ts... tensor_constructor_args) {
   tensorflow::Tensor tensor(tensor_constructor_args...);
-  tensorflow::TensorProto tensor_proto;
-  if (tensor.dtype() == tensorflow::DT_STRING) {
-    tensor.AsProtoField(&tensor_proto);
-  } else {
-    tensor.AsProtoTensorContent(&tensor_proto);
-  }
   v0::Value value_proto;
-  value_proto.mutable_tensor()->PackFrom(tensor_proto);
+  absl::Status status = SerializeTensorValue(tensor, &value_proto);
   return value_proto;
 }
 

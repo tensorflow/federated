@@ -90,7 +90,7 @@ def from_proto(array_pb: array_pb2.Array) -> Array:
   elif dtype is np.str_:
     value = array_pb.string_list.value
   else:
-    raise NotImplementedError(f'Unexpected dtype found: {dtype}.')
+    raise NotImplementedError(f'Unexpected `dtype` found: {dtype}.')
 
   # Strings are stored as bytes in `array_pb2.Array` and trailing null values
   # are dropped when using `np.bytes_`, use `np.object_` instead.
@@ -120,14 +120,14 @@ def to_proto(
   """Returns an `array_pb2.Array` for the `value`."""
 
   if dtype_hint is not None:
-    if not is_compatible_dtype(value, dtype_hint):
+    if not dtype_utils.is_valid_dtype(dtype_hint):
       raise ValueError(
-          f"Expected '{value}' to be compatible with '{dtype_hint}'."
+          f'Expected `dtype_hint` to be a valid dtype, found {dtype_hint}.'
       )
+    if not is_compatible_dtype(value, dtype_hint):
+      raise ValueError(f'Expected {value} to be compatible with {dtype_hint}.')
     dtype = dtype_hint
     # Cast values with a dtype of `np.number`, no other dtypes are compatible.
-    if np.issubdtype(dtype, np.number):
-      value = np.asarray(value).astype(dtype)
   else:
     if isinstance(value, (np.ndarray, np.generic)):
       dtype = value.dtype.type
@@ -138,22 +138,23 @@ def to_proto(
     else:
       dtype = dtype_utils.infer_dtype(value)
 
-  def _has_dtype(value, dtype):
+  def _contains_type(value, classinfo):
     if isinstance(value, (np.ndarray, np.generic)):
-      value_dtype = value.dtype
+      item = value.item(0)
     else:
-      value_dtype = type(value)
-    return np.issubdtype(value_dtype, dtype)
+      item = value
+    return isinstance(item, classinfo)
 
   # Normalize to a numpy value; strings are stored as bytes in `array_pb2.Array`
   # and trailing null values are dropped when using `np.bytes_`, so use
   # `np.object_` instead.
-  if _has_dtype(value, np.str_):
-    value = np.asarray(value, np.bytes_)
-  elif _has_dtype(value, np.bytes_):
-    value = np.asarray(value, np.object_)
-  elif not isinstance(value, (np.ndarray, np.generic)):
-    value = np.asarray(value)
+  if dtype is np.str_:
+    if _contains_type(value, str):
+      value = np.asarray(value, dtype=np.bytes_)
+    else:
+      value = np.asarray(value, dtype=np.object_)
+  else:
+    value = np.asarray(value, dtype)
 
   dtype_pb = dtype_utils.to_proto(dtype)
   shape_pb = array_shape.to_proto(value.shape)
@@ -265,7 +266,69 @@ def to_proto(
         string_list=array_pb2.Array.BytesList(value=value),
     )
   else:
-    raise NotImplementedError(f'Unexpected dtype found: {dtype}.')
+    raise NotImplementedError(f'Unexpected `dtype` found: {dtype}.')
+
+
+def from_proto_content(array_pb: array_pb2.Array) -> Array:
+  """Returns an `Array` for the `array_pb`."""
+  dtype = dtype_utils.from_proto(array_pb.dtype)
+  shape = array_shape.from_proto(array_pb.shape)
+
+  if array_pb.HasField('content'):
+    if dtype is not np.str_:
+      value = np.frombuffer(array_pb.content, dtype)
+    else:
+      raise NotImplementedError(f'Unexpected `dtype` found: {dtype}.')
+  else:
+    raise ValueError('Expected `array_pb` to have a `content` field.')
+
+  if not array_shape.is_shape_scalar(shape):
+    value = value.reshape(shape)
+  else:
+    value = value.item()
+
+  if array_shape.is_shape_scalar(shape):
+    value = dtype(value)
+
+  return value
+
+
+def to_proto_content(
+    value: Array, *, dtype_hint: Optional[type[np.generic]] = None
+) -> array_pb2.Array:
+  """Returns an `Array` for the `value`."""
+
+  if dtype_hint is not None:
+    if not dtype_utils.is_valid_dtype(dtype_hint):
+      raise ValueError(
+          f'Expected `dtype_hint` to be a valid dtype, found {dtype_hint}.'
+      )
+    if not is_compatible_dtype(value, dtype_hint):
+      raise ValueError(f'Expected {value} to be compatible with {dtype_hint}.')
+    dtype = dtype_hint
+  else:
+    if isinstance(value, (np.ndarray, np.generic)):
+      dtype = value.dtype.type
+      # If the value has a dtype of `np.bytes_` or `np.object_`, the serialized
+      # dtype should still be a `np.str_`.
+      if np.issubdtype(dtype, np.bytes_) or np.issubdtype(dtype, np.object_):
+        dtype = np.str_
+    else:
+      dtype = dtype_utils.infer_dtype(value)
+
+  # Normalize to a numpy value; strings are stored as bytes in `array_pb2.Array`
+  # and trailing null values are dropped when using `np.bytes_`, so use
+  # `np.object_` instead.
+  if dtype is not np.str_:
+    value = np.asarray(value, dtype)
+  else:
+    raise NotImplementedError(f'Unexpected `dtype` found: {dtype}.')
+
+  dtype_pb = dtype_utils.to_proto(dtype)
+  shape_pb = array_shape.to_proto(value.shape)
+  content = value.tobytes()
+
+  return array_pb2.Array(dtype=dtype_pb, shape=shape_pb, content=content)
 
 
 def _can_cast(obj: object, dtype: type[np.generic]) -> bool:
@@ -304,12 +367,14 @@ def is_compatible_dtype(value: Array, dtype: type[np.generic]) -> bool:
     value_dtype = type(value)
 
   # Check dtype kind and skip checking dtype size because `np.bool_` does not
-  # have a size and values with a dtype `np.str_` and `np.bytes_` have a
-  # variable length.
+  # have a size and values with a dtype `np.str_`, `np.bytes_`, and `np.object_`
+  # have a variable length.
   if np.issubdtype(value_dtype, np.bool_):
     return dtype is np.bool_
   elif np.issubdtype(value_dtype, np.character):
-    return dtype is np.str_ or dtype is np.bytes_
+    return dtype is np.str_
+  elif np.issubdtype(value_dtype, np.object_):
+    return dtype is np.str_
 
   # Check dtype kind.
   if np.issubdtype(value_dtype, np.integer):
@@ -344,3 +409,10 @@ def is_compatible_shape(value: Array, shape: array_shape.ArrayShape) -> bool:
     return array_shape.is_compatible_with(value.shape, shape)
   else:
     return array_shape.is_shape_scalar(shape)
+
+
+# def infer_shape(value: Array) -> array_shape.ArrayShape:
+#   if isinstance(value, (np.ndarray, np.generic)):
+#     return value.shape
+#   else:
+#     return ()

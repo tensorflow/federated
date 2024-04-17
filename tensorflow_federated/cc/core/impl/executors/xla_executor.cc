@@ -443,8 +443,7 @@ class XLAExecutor : public ExecutorBase<ValueFuture> {
   // the executor.
   xla::Client* xla_client_;
 
-  absl::StatusOr<XLAExecutorValue> CreateValueTensor(
-      const v0::Value& value_pb) {
+  absl::StatusOr<XLAExecutorValue> CreateValueArray(const v0::Value& value_pb) {
     tensorflow::Tensor t = TFF_TRY(DeserializeTensorValue(value_pb));
     xla::BorrowingLiteral tensor_literal;
     absl::Status to_literal_status =
@@ -546,8 +545,8 @@ class XLAExecutor : public ExecutorBase<ValueFuture> {
 
   absl::StatusOr<XLAExecutorValue> CreateValueAny(const v0::Value& value_pb) {
     switch (value_pb.value_case()) {
-      case v0::Value::ValueCase::kTensor:
-        return CreateValueTensor(value_pb);
+      case v0::Value::ValueCase::kArray:
+        return CreateValueArray(value_pb);
       case v0::Value::ValueCase::kComputation:
         return CreateValueComputation(value_pb.computation());
       case v0::Value::ValueCase::kStruct:

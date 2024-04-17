@@ -20,10 +20,13 @@ limitations under the License
 #include <cstdint>
 #include <string>
 
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "third_party/eigen3/Eigen/Core"
 #include "tensorflow/core/framework/attr_value.pb.h"
 #include "tensorflow/core/framework/graph.pb.h"
@@ -32,13 +35,103 @@ limitations under the License
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.h"
+#include "tensorflow/core/framework/tensor_shape.pb.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow/core/platform/tstring.h"
 #include "tensorflow_federated/cc/core/impl/executors/status_macros.h"
 #include "tensorflow_federated/proto/v0/array.pb.h"
+#include "tensorflow_federated/proto/v0/data_type.pb.h"
 
 namespace tensorflow_federated {
+
+absl::StatusOr<v0::DataType> DataTypeFromTensorFlowDataType(
+    tensorflow::DataType data_type_pb) {
+  switch (data_type_pb) {
+    case tensorflow::DataType::DT_BOOL:
+      return v0::DataType::DT_BOOL;
+    case tensorflow::DataType::DT_INT8:
+      return v0::DataType::DT_INT8;
+    case tensorflow::DataType::DT_INT16:
+      return v0::DataType::DT_INT16;
+    case tensorflow::DataType::DT_INT32:
+      return v0::DataType::DT_INT32;
+    case tensorflow::DataType::DT_INT64:
+      return v0::DataType::DT_INT64;
+    case tensorflow::DataType::DT_UINT8:
+      return v0::DataType::DT_UINT8;
+    case tensorflow::DataType::DT_UINT16:
+      return v0::DataType::DT_UINT16;
+    case tensorflow::DataType::DT_UINT32:
+      return v0::DataType::DT_UINT32;
+    case tensorflow::DataType::DT_UINT64:
+      return v0::DataType::DT_UINT64;
+    case tensorflow::DataType::DT_HALF:
+      return v0::DataType::DT_HALF;
+    case tensorflow::DataType::DT_FLOAT:
+      return v0::DataType::DT_FLOAT;
+    case tensorflow::DataType::DT_DOUBLE:
+      return v0::DataType::DT_DOUBLE;
+    case tensorflow::DataType::DT_COMPLEX64:
+      return v0::DataType::DT_COMPLEX64;
+    case tensorflow::DataType::DT_COMPLEX128:
+      return v0::DataType::DT_COMPLEX128;
+    case tensorflow::DataType::DT_STRING:
+      return v0::DataType::DT_STRING;
+    default:
+      return absl::UnimplementedError(
+          absl::StrCat("Unexpected DataType found:", data_type_pb));
+  }
+}
+
+absl::StatusOr<tensorflow::DataType> TensorFlowDataTypeFromDataType(
+    v0::DataType data_type_pb) {
+  switch (data_type_pb) {
+    case v0::DataType::DT_BOOL:
+      return tensorflow::DataType::DT_BOOL;
+    case v0::DataType::DT_INT8:
+      return tensorflow::DataType::DT_INT8;
+    case v0::DataType::DT_INT16:
+      return tensorflow::DataType::DT_INT16;
+    case v0::DataType::DT_INT32:
+      return tensorflow::DataType::DT_INT32;
+    case v0::DataType::DT_INT64:
+      return tensorflow::DataType::DT_INT64;
+    case v0::DataType::DT_UINT8:
+      return tensorflow::DataType::DT_UINT8;
+    case v0::DataType::DT_UINT16:
+      return tensorflow::DataType::DT_UINT16;
+    case v0::DataType::DT_UINT32:
+      return tensorflow::DataType::DT_UINT32;
+    case v0::DataType::DT_UINT64:
+      return tensorflow::DataType::DT_UINT64;
+    case v0::DataType::DT_HALF:
+      return tensorflow::DataType::DT_HALF;
+    case v0::DataType::DT_FLOAT:
+      return tensorflow::DataType::DT_FLOAT;
+    case v0::DataType::DT_DOUBLE:
+      return tensorflow::DataType::DT_DOUBLE;
+    case v0::DataType::DT_COMPLEX64:
+      return tensorflow::DataType::DT_COMPLEX64;
+    case v0::DataType::DT_COMPLEX128:
+      return tensorflow::DataType::DT_COMPLEX128;
+    case v0::DataType::DT_STRING:
+      return tensorflow::DataType::DT_STRING;
+    default:
+      return absl::UnimplementedError(
+          absl::StrCat("Unexpected DataType found:", data_type_pb));
+  }
+}
+
+absl::StatusOr<v0::ArrayShape> ArrayShapeFromTensorShape(
+    const tensorflow::TensorShape& tensor_shape) {
+  v0::ArrayShape shape_pb;
+  for (int i = 0; i < tensor_shape.dims(); i++) {
+    shape_pb.mutable_dim()->Add(tensor_shape.dim_size(i));
+  }
+  shape_pb.set_unknown_rank(tensor_shape.unknown_rank());
+  return shape_pb;
+}
 
 absl::StatusOr<tensorflow::TensorShape> TensorShapeFromArrayShape(
     const v0::ArrayShape& shape_pb) {
@@ -61,6 +154,96 @@ tensorflow::PartialTensorShape PartialTensorShapeFromArrayShape(
   } else {
     return tensorflow::PartialTensorShape();
   }
+}
+
+absl::StatusOr<v0::Array> ArrayFromTensor(const tensorflow::Tensor& tensor) {
+  v0::Array array_pb;
+  v0::DataType data_type =
+      TFF_TRY(DataTypeFromTensorFlowDataType(tensor.dtype()));
+  array_pb.set_dtype(data_type);
+  v0::ArrayShape shape_pb = TFF_TRY(ArrayShapeFromTensorShape(tensor.shape()));
+  array_pb.mutable_shape()->Swap(&shape_pb);
+
+  tensorflow::TensorProto tensor_pb;
+  tensor.AsProtoField(&tensor_pb);
+
+  switch (tensor_pb.dtype()) {
+    case tensorflow::DataType::DT_BOOL: {
+      array_pb.mutable_bool_list()->mutable_value()->Assign(
+          tensor_pb.bool_val().begin(), tensor_pb.bool_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_INT8: {
+      array_pb.mutable_int8_list()->mutable_value()->Assign(
+          tensor_pb.int_val().begin(), tensor_pb.int_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_INT16: {
+      array_pb.mutable_int16_list()->mutable_value()->Assign(
+          tensor_pb.int_val().begin(), tensor_pb.int_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_INT32: {
+      array_pb.mutable_int32_list()->mutable_value()->Assign(
+          tensor_pb.int_val().begin(), tensor_pb.int_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_INT64: {
+      array_pb.mutable_int64_list()->mutable_value()->Assign(
+          tensor_pb.int64_val().begin(), tensor_pb.int64_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_UINT8: {
+      array_pb.mutable_uint8_list()->mutable_value()->Assign(
+          tensor_pb.int_val().begin(), tensor_pb.int_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_UINT16: {
+      array_pb.mutable_uint16_list()->mutable_value()->Assign(
+          tensor_pb.int_val().begin(), tensor_pb.int_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_UINT32: {
+      array_pb.mutable_uint32_list()->mutable_value()->Assign(
+          tensor_pb.uint32_val().begin(), tensor_pb.uint32_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_UINT64: {
+      array_pb.mutable_uint64_list()->mutable_value()->Assign(
+          tensor_pb.uint64_val().begin(), tensor_pb.uint64_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_HALF: {
+      array_pb.mutable_float16_list()->mutable_value()->Assign(
+          tensor_pb.half_val().begin(), tensor_pb.half_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_FLOAT: {
+      array_pb.mutable_float32_list()->mutable_value()->Assign(
+          tensor_pb.float_val().begin(), tensor_pb.float_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_DOUBLE: {
+      array_pb.mutable_float64_list()->mutable_value()->Assign(
+          tensor_pb.double_val().begin(), tensor_pb.double_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_COMPLEX64: {
+      array_pb.mutable_complex64_list()->mutable_value()->Assign(
+          tensor_pb.scomplex_val().begin(), tensor_pb.scomplex_val().end());
+      break;
+    }
+    case tensorflow::DataType::DT_COMPLEX128: {
+      array_pb.mutable_complex128_list()->mutable_value()->Assign(
+          tensor_pb.dcomplex_val().begin(), tensor_pb.dcomplex_val().end());
+      break;
+    }
+    default:
+      return absl::UnimplementedError(
+          absl::StrCat("Unexpected DataType found:", array_pb.kind_case()));
+  }
+
+  return array_pb;
 }
 
 template <typename T>
@@ -230,6 +413,50 @@ absl::StatusOr<tensorflow::Tensor> TensorFromArray(const v0::Array& array_pb) {
       return absl::UnimplementedError(
           absl::StrCat("Unexpected DataType found:", array_pb.kind_case()));
   }
+}
+
+absl::StatusOr<v0::Array> ArrayContentFromTensor(
+    const tensorflow::Tensor& tensor) {
+  v0::Array array_pb;
+  v0::DataType data_type =
+      TFF_TRY(DataTypeFromTensorFlowDataType(tensor.dtype()));
+  array_pb.set_dtype(data_type);
+  v0::ArrayShape shape_pb = TFF_TRY(ArrayShapeFromTensorShape(tensor.shape()));
+  array_pb.mutable_shape()->Swap(&shape_pb);
+  tensorflow::TensorProto tensor_pb;
+  tensor.AsProtoTensorContent(&tensor_pb);
+
+  LOG(ERROR) << "--- tensor_pb";
+  LOG(ERROR) << tensor_pb;
+
+  absl::CopyCordToString(tensor_pb.tensor_content(),
+                         array_pb.mutable_content());
+
+  return array_pb;
+}
+
+absl::StatusOr<tensorflow::Tensor> TensorFromArrayContent(
+    const v0::Array& array_pb) {
+  if (!array_pb.has_content()) {
+    return absl::UnimplementedError(
+        absl::StrCat("Unexpected DataType found:", array_pb.kind_case()));
+  }
+
+  tensorflow::TensorProto tensor_pb;
+  tensorflow::DataType data_type =
+      TFF_TRY(TensorFlowDataTypeFromDataType(array_pb.dtype()));
+  tensor_pb.set_dtype(data_type);
+  tensorflow::TensorShapeProto shape_pb =
+      TFF_TRY(TensorShapeFromArrayShape(array_pb.shape())).AsProto();
+  tensor_pb.mutable_tensor_shape()->Swap(&shape_pb);
+  *tensor_pb.mutable_tensor_content() = array_pb.content();
+
+  tensorflow::Tensor tensor;
+  if (!tensor.FromProto(tensor_pb)) {
+    return absl::InvalidArgumentError(
+        "Seriailzed tensor proto could not be parsed into Tensor.");
+  }
+  return tensor;
 }
 
 std::string GetNodeName(absl::string_view tensor_name) {

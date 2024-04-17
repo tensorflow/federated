@@ -38,6 +38,33 @@ class ArrayShapeTest(parameterized.TestCase):
       dtype_utils.to_proto(dtype)
 
   @parameterized.named_parameters(
+      ('bool', np.bool_),
+      ('int8', np.int8),
+      ('int16', np.int16),
+      ('int32', np.int32),
+      ('int64', np.int64),
+      ('uint8', np.uint8),
+      ('uint16', np.uint16),
+      ('uint32', np.uint32),
+      ('uint64', np.uint64),
+      ('float16', np.float16),
+      ('float32', np.float32),
+      ('float64', np.float64),
+      ('complex64', np.complex64),
+      ('complex128', np.complex128),
+      ('str', np.str_),
+  )
+  def test_is_valid_dtype_returns_true(self, dtype):
+    self.assertTrue(dtype_utils.is_valid_dtype(dtype))
+
+  @parameterized.named_parameters(
+      ('bytes', np.bytes_),
+      ('object', np.object_),
+  )
+  def test_is_valid_dtype_returns_false(self, dtype):
+    self.assertFalse(dtype_utils.is_valid_dtype(dtype))
+
+  @parameterized.named_parameters(
       ('bool', True, np.bool_),
       ('int32_min', int(np.iinfo(np.int32).min), np.int32),
       ('int32_max', int(np.iinfo(np.int32).max), np.int32),

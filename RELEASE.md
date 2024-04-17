@@ -8,6 +8,14 @@ and this project adheres to
 
 ## Unreleased
 
+### Changed
+
+*   How tensors get serialized and deserialized in the `Value` protobuf.
+
+### Removed
+
+*   The `tensor` field from the `Value` protobuf.
+
 ## Release 0.82.0
 
 ### Added
