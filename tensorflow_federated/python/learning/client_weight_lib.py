@@ -25,6 +25,7 @@ class ClientWeighting(enum.Enum):
 
   UNIFORM = 1
   NUM_EXAMPLES = 2
+  CUSTOMIZED = 3
 
 
 ClientWeightFnType = Callable[[Any], tf.Tensor]
