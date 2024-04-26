@@ -31,7 +31,7 @@ git_repository(
 git_repository(
     name = "com_google_protobuf",
     remote = "https://github.com/protocolbuffers/protobuf.git",
-    tag = "v3.21.9",
+    tag = "v26.1",
 )
 
 # TODO: b/333391041 - Temporarily disable the direct dependency on
@@ -91,8 +91,12 @@ git_repository(
 git_repository(
     name = "rules_python",
     remote = "https://github.com/bazelbuild/rules_python.git",
-    tag = "0.23.0",
+    tag = "0.31.0",
 )
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 git_repository(
     name = "tensorflow_compression",
