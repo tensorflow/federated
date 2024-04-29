@@ -21,6 +21,7 @@ from tensorflow_federated.python.core.backends.mapreduce import compiler
 from tensorflow_federated.python.core.backends.mapreduce import form_utils
 from tensorflow_federated.python.core.backends.mapreduce import mapreduce_test_utils
 from tensorflow_federated.python.core.impl.compiler import building_block_factory
+from tensorflow_federated.python.core.impl.compiler import building_block_test_utils
 from tensorflow_federated.python.core.impl.compiler import building_blocks
 from tensorflow_federated.python.core.impl.compiler import intrinsic_defs
 from tensorflow_federated.python.core.impl.compiler import tensorflow_computation_factory
@@ -583,8 +584,11 @@ class CompileLocalSubcomputationsToTensorFlowTest(absltest.TestCase):
     identity_lambda = building_blocks.Lambda(
         ref_to_x.name, ref_to_x.type_signature, ref_to_x
     )
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array(1)
+    )
     federated_data = building_blocks.Data(
-        'a',
+        any_proto,
         computation_types.FederatedType(
             computation_types.StructType([np.int32, np.float32]),
             placements.SERVER,

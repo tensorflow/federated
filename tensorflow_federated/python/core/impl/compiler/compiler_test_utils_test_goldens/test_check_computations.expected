@@ -1,46 +1,46 @@
 computation_1:
 
 (arg -> (let
-  y=a,
-  z=b
+  y=1,
+  z=2
  in <
   (let
     v=<
       (let
-        t=c
-       in d),
+        t=3
+       in 4),
       (let
-        u=e
-       in f)
+        u=5
+       in 6)
     >[0]
-   in g),
+   in 7),
   (let
-    x=h
+    x=10
    in (let
-    w=i
-   in j))
->))(k)
+    w=8
+   in 9))
+>))(11)
 
 computation_2:
 
 (arg -> (let
-  y=a,
-  z=b
+  y=1,
+  z=2
  in <
   (let
     v=<
       (let
-        t=c
-       in d),
+        t=3
+       in 4),
       (let
-        u=e
-       in f)
+        u=5
+       in 6)
     >[0]
-   in g),
+   in 7),
   (let
-    x=h
+    x=10
    in (let
-    w=i
-   in j))
->))(k)
+    w=8
+   in 9))
+>))(11)
 

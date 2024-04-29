@@ -22,6 +22,7 @@ import zlib
 
 import numpy as np
 
+from google.protobuf import any_pb2
 from tensorflow_federated.proto.v0 import computation_pb2 as pb
 from tensorflow_federated.python.common_libs import py_typecheck
 from tensorflow_federated.python.common_libs import structure
@@ -993,15 +994,15 @@ class Data(ComputationBuildingBlock):
   def from_proto(cls, computation_proto: pb.Computation) -> 'Data':
     _check_computation_oneof(computation_proto, 'data')
     return cls(
-        computation_proto.data.uri,
+        computation_proto.data.content,
         type_serialization.deserialize_type(computation_proto.type),
     )
 
-  def __init__(self, uri: str, type_spec: object):
+  def __init__(self, content: any_pb2.Any, type_spec: object):
     """Creates a representation of data.
 
     Args:
-      uri: The URI that characterizes the data.
+      content: The URI that characterizes the data.
       type_spec: Either the types.Type that represents the type of this data, or
         something convertible to it by types.to_type().
 
@@ -1009,21 +1010,19 @@ class Data(ComputationBuildingBlock):
       TypeError: if the arguments are of the wrong types.
       ValueError: if the user tries to specify an empty URI.
     """
-    py_typecheck.check_type(uri, str)
-    if not uri:
-      raise ValueError('Empty string cannot be passed as URI to Data.')
+    py_typecheck.check_type(content, any_pb2.Any)
     if type_spec is None:
       raise TypeError(
-          'Intrinsic {} cannot be created without a TFF type.'.format(uri)
+          'Intrinsic {} cannot be created without a TFF type.'.format(content)
       )
     type_spec = computation_types.to_type(type_spec)
     super().__init__(type_spec)
-    self._uri = uri
+    self._content = content
 
   def _proto(self) -> pb.Computation:
     return pb.Computation(
         type=type_serialization.serialize_type(self.type_signature),
-        data=pb.Data(uri=self._uri),
+        data=pb.Data(content=self._content),
     )
 
   def children(self) -> Iterator[ComputationBuildingBlock]:
@@ -1031,8 +1030,8 @@ class Data(ComputationBuildingBlock):
     return iter(())
 
   @property
-  def uri(self) -> str:
-    return self._uri
+  def content(self) -> any_pb2.Any:
+    return self._content
 
   def __eq__(self, other: object) -> bool:
     if self is other:
@@ -1040,20 +1039,20 @@ class Data(ComputationBuildingBlock):
     elif not isinstance(other, Data):
       return NotImplemented
     return (
-        self._uri,
+        id(self._content),
         self._type_signature,
     ) == (
-        other._uri,
+        id(other._content),
         other._type_signature,
     )
 
   def __hash__(self):
     if self._cached_hash is None:
-      self._cached_hash = hash((self._uri, self._type_signature))
+      self._cached_hash = hash((id(self._content), self._type_signature))
     return self._cached_hash
 
   def __repr__(self) -> str:
-    return "Data('{}', {!r})".format(self._uri, self.type_signature)
+    return 'Data({}, {!r})'.format(id(self._content), self.type_signature)
 
 
 class CompiledComputation(ComputationBuildingBlock):
@@ -1415,7 +1414,7 @@ def _string_representation(
     elif isinstance(comp, CompiledComputation):
       return ['comp#{}'.format(comp.name)]
     elif isinstance(comp, Data):
-      return [comp.uri]
+      return [str(id(comp.content))]
     elif isinstance(comp, Intrinsic):
       return [comp.uri]
     elif isinstance(comp, Lambda):
@@ -1679,7 +1678,7 @@ def _structural_representation(comp):
     elif isinstance(comp, CompiledComputation):
       return 'Compiled({})'.format(comp.name)
     elif isinstance(comp, Data):
-      return comp.uri
+      return f'Data({id(comp.content)})'
     elif isinstance(comp, Intrinsic):
       return comp.uri
     elif isinstance(comp, Lambda):

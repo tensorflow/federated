@@ -73,4 +73,10 @@ def check_computations(
     values.append(
         f'{name}:\n\n{computation_ast.formatted_representation()}\n\n'
     )
+  print('*******************************************************************')
+  print('COMPUTATIONS')
+  print(computations)
+  print('*******************************************************************')
+  print('VALUES')
+  print(values)
   golden.check_string(filename, ''.join(values))

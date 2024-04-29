@@ -135,8 +135,10 @@ py_library(
     testonly = True,
     srcs = ["building_block_test_utils.py"],
     deps = [
+        ":array",
         ":building_block_factory",
         ":building_blocks",
+        "//google/protobuf:any_py_pb2",
         "//tensorflow_federated/python/core/impl/types:computation_types",
         "//tensorflow_federated/python/core/impl/types:placements",
     ],
@@ -148,6 +150,7 @@ py_library(
     deps = [
         ":array",
         ":intrinsic_defs",
+        "//google/protobuf:any_py_pb2",
         "//tensorflow_federated/proto/v0:computation_py_pb2",
         "//tensorflow_federated/python/common_libs:py_typecheck",
         "//tensorflow_federated/python/common_libs:structure",
@@ -164,10 +167,12 @@ py_test(
     size = "small",
     srcs = ["building_blocks_test.py"],
     deps = [
+        ":array",
         ":building_block_test_utils",
         ":building_blocks",
         ":computation_factory",
         ":intrinsic_defs",
+        "//google/protobuf:any_py_pb2",
         "//tensorflow_federated/proto/v0:array_py_pb2",
         "//tensorflow_federated/proto/v0:computation_py_pb2",
         "//tensorflow_federated/proto/v0:data_type_py_pb2",

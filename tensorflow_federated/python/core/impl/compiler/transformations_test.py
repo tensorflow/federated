@@ -125,7 +125,10 @@ class ToCallDominantTest(absltest.TestCase):
     int_type = computation_types.to_type(np.int32)
     int_to_int_type = computation_types.FunctionType(int_type, int_type)
     bb = building_blocks
-    int_to_int_fn = bb.Data('ext', int_to_int_type)
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
+    int_to_int_fn = bb.Data(any_proto, int_to_int_type)
     before = bb.Lambda(
         'x',
         int_type,
@@ -155,7 +158,10 @@ class ToCallDominantTest(absltest.TestCase):
     int_to_int_type = computation_types.FunctionType(int_type, int_type)
     int_thunk_type = computation_types.FunctionType(None, int_type)
     bb = building_blocks
-    int_to_int_fn = bb.Data('ext', int_to_int_type)
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
+    int_to_int_fn = bb.Data(any_proto, int_to_int_type)
 
     # -> (let result = ext(x) in (-> result))
     # Each call of the outer lambda should create a single binding, with
@@ -222,7 +228,10 @@ class ToCallDominantTest(absltest.TestCase):
         [(None, int_type), (None, int_type)]
     )
     get_two_int_type = computation_types.FunctionType(None, two_int_type)
-    call_ext = bb.Call(bb.Data('ext', get_two_int_type))
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
+    call_ext = bb.Call(bb.Data(any_proto, get_two_int_type))
     before = bb.Selection(call_ext, index=0)
     after = transformations.to_call_dominant(before)
     expected = bb.Block(
@@ -240,9 +249,9 @@ class ToCallDominantTest(absltest.TestCase):
         int_to_int_type, int_type
     )
     call_ext = building_blocks.Call(
-        building_blocks.Data('call_with_one', int_to_int_to_int_type),
+        building_blocks.Reference('call_with_one', int_to_int_to_int_type),
         building_blocks.Lambda(
-            'x', int_type, building_blocks.Data('num', int_type)
+            'x', int_type, building_blocks.Reference('num', int_type)
         ),
     )
     after = transformations.to_call_dominant(call_ext)
@@ -347,9 +356,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     )
     comp = building_blocks.Lambda('param', client_int_type, body)
     intrinsic_defaults = [
-        building_block_test_utils.create_whimsy_called_federated_map(
-            'test', computation_types.StructType([])
-        ),
+        building_block_test_utils.create_whimsy_called_federated_map('test'),
     ]
     with self.assertRaises(transformations.NonAlignableAlongIntrinsicError):
       transformations.force_align_and_split_by_intrinsics(
@@ -362,9 +369,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     )
     called_intrinsics = building_blocks.Struct([federated_broadcast])
     comp = building_blocks.Lambda(None, None, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_broadcast(
-        computation_types.StructType([])
-    )
+    call = building_block_test_utils.create_whimsy_called_federated_broadcast()
     self.assert_splits_on(comp, call)
 
   def test_splits_on_selected_intrinsic_broadcast(self):
@@ -373,18 +378,20 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     )
     called_intrinsics = building_blocks.Struct([federated_broadcast])
     comp = building_blocks.Lambda('a', np.int32, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_broadcast(
-        computation_types.StructType([])
-    )
+    call = building_block_test_utils.create_whimsy_called_federated_broadcast()
     self.assert_splits_on(comp, call)
 
   def test_splits_on_selected_intrinsic_nested_in_tuple_broadcast(self):
     first_broadcast = (
         building_block_test_utils.create_whimsy_called_federated_broadcast()
     )
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
     packed_broadcast = building_blocks.Struct([
         building_blocks.Data(
-            'a', computation_types.FederatedType(np.int32, placements.SERVER)
+            any_proto,
+            computation_types.FederatedType(np.int32, placements.SERVER),
         ),
         first_broadcast,
     ])
@@ -392,9 +399,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     second_broadcast = building_block_factory.create_federated_broadcast(sel)
     result = transformations.to_call_dominant(second_broadcast)
     comp = building_blocks.Lambda('a', np.int32, result)
-    call = building_block_test_utils.create_whimsy_called_federated_broadcast(
-        computation_types.StructType([])
-    )
+    call = building_block_test_utils.create_whimsy_called_federated_broadcast()
     self.assert_splits_on(comp, call)
 
   def test_splits_on_multiple_of_selected_intrinsic_broadcast(self):
@@ -406,9 +411,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
         federated_broadcast,
     ])
     comp = building_blocks.Lambda('a', np.int32, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_broadcast(
-        computation_types.StructType([])
-    )
+    call = building_block_test_utils.create_whimsy_called_federated_broadcast()
     self.assert_splits_on(comp, call)
 
   def test_splits_on_selected_intrinsic_aggregate(self):
@@ -422,7 +425,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     called_intrinsics = building_blocks.Struct([federated_aggregate])
     comp = building_blocks.Lambda('d', np.int32, called_intrinsics)
     call = building_block_test_utils.create_whimsy_called_federated_aggregate(
-        value_type=computation_types.StructType([])
+        value_type=np.int32
     )
     self.assert_splits_on(comp, call)
 
@@ -439,9 +442,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
         federated_aggregate,
     ])
     comp = building_blocks.Lambda('d', np.int32, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_aggregate(
-        value_type=computation_types.StructType([])
-    )
+    call = building_block_test_utils.create_whimsy_called_federated_aggregate()
     self.assert_splits_on(comp, call)
 
   def test_splits_on_selected_intrinsic_secure_sum_bitwidth(self):
@@ -450,8 +451,8 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     )
     called_intrinsics = building_blocks.Struct([federated_secure_sum_bitwidth])
     comp = building_blocks.Lambda('a', np.int32, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-        computation_types.StructType([])
+    call = (
+        building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth()
     )
     self.assert_splits_on(comp, call)
 
@@ -464,8 +465,8 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
         federated_secure_sum_bitwidth,
     ])
     comp = building_blocks.Lambda('a', np.int32, called_intrinsics)
-    call = building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-        computation_types.StructType([])
+    call = (
+        building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth()
     )
     self.assert_splits_on(comp, call)
 
@@ -486,9 +487,7 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     ])
     comp = building_blocks.Lambda('d', np.int32, called_intrinsics)
     null_aggregate = (
-        building_block_test_utils.create_whimsy_called_federated_aggregate(
-            value_type=computation_types.StructType([])
-        )
+        building_block_test_utils.create_whimsy_called_federated_aggregate()
     )
     secure_sum_bitwidth_uri = federated_secure_sum_bitwidth.function.uri
     aggregate_uri = null_aggregate.function.uri
@@ -533,12 +532,8 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     self.assert_splits_on(
         comp,
         [
-            building_block_test_utils.create_whimsy_called_federated_aggregate(
-                value_type=computation_types.StructType([])
-            ),
-            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-                computation_types.StructType([])
-            ),
+            building_block_test_utils.create_whimsy_called_federated_aggregate(),
+            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(),
         ],
     )
 
@@ -563,12 +558,8 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     self.assert_splits_on(
         comp,
         [
-            building_block_test_utils.create_whimsy_called_federated_aggregate(
-                value_type=computation_types.StructType([])
-            ),
-            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-                computation_types.StructType([])
-            ),
+            building_block_test_utils.create_whimsy_called_federated_aggregate(),
+            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(),
         ],
     )
 
@@ -585,12 +576,8 @@ class ForceAlignAndSplitByIntrinsicTest(absltest.TestCase):
     transformations.force_align_and_split_by_intrinsics(
         comp,
         [
-            building_block_test_utils.create_whimsy_called_federated_aggregate(
-                value_type=computation_types.StructType([])
-            ),
-            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-                computation_types.StructType([])
-            ),
+            building_block_test_utils.create_whimsy_called_federated_aggregate(),
+            building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(),
         ],
     )
 
@@ -1836,8 +1823,11 @@ class DivisiveForceAlignAndSplitByIntrinsicsTest(absltest.TestCase):
             building_blocks.Reference('arg', arg_type), index=server_data_index
         )
     )
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
     packed_broadcast = building_blocks.Struct(
-        [building_blocks.Data('a', server_val_type), first_broadcast]
+        [building_blocks.Data(any_proto, server_val_type), first_broadcast]
     )
     sel = building_blocks.Selection(packed_broadcast, index=0)
     second_broadcast = building_block_factory.create_federated_broadcast(sel)

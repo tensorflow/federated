@@ -152,7 +152,7 @@ class FederatedComputationContextTest(absltest.TestCase):
     context = federated_computation_context.FederatedComputationContext(
         context_stack_impl.context_stack
     )
-    data = building_blocks.Data('x', np.int32)
+    data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     ref = context.bind_computation_to_reference(data)
     symbol_bindings = context.symbol_bindings
     bound_symbol_name = symbol_bindings[0][0]
@@ -166,16 +166,18 @@ class FederatedComputationContextTest(absltest.TestCase):
     context = federated_computation_context.FederatedComputationContext(
         context_stack_impl.context_stack
     )
-    data = building_blocks.Data('x', np.int32)
-    float_data = building_blocks.Data('x', np.float32)
-    ref1 = context.bind_computation_to_reference(data)
+    lit = building_blocks.Literal(1, computation_types.TensorType(np.int32))
+    float_data = building_blocks.Literal(
+        2.0, computation_types.TensorType(np.float32)
+    )
+    ref1 = context.bind_computation_to_reference(lit)
     ref2 = context.bind_computation_to_reference(float_data)
     symbol_bindings = context.symbol_bindings
 
     self.assertIsInstance(ref1, building_blocks.Reference)
     self.assertIsInstance(ref2, building_blocks.Reference)
 
-    self.assertEqual(ref1.type_signature, data.type_signature)
+    self.assertEqual(ref1.type_signature, lit.type_signature)
     self.assertEqual(ref2.type_signature, float_data.type_signature)
     self.assertLen(symbol_bindings, 2)
     self.assertEqual(symbol_bindings[0][0], ref1.name)

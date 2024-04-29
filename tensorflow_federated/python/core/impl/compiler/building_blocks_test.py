@@ -17,10 +17,12 @@ from absl.testing import parameterized
 import numpy as np
 import tree
 
+from google.protobuf import any_pb2
 from tensorflow_federated.proto.v0 import array_pb2
 from tensorflow_federated.proto.v0 import computation_pb2
 from tensorflow_federated.proto.v0 import data_type_pb2
 from tensorflow_federated.python.common_libs import structure
+from tensorflow_federated.python.core.impl.compiler import array
 from tensorflow_federated.python.core.impl.compiler import building_block_test_utils
 from tensorflow_federated.python.core.impl.compiler import building_blocks
 from tensorflow_federated.python.core.impl.compiler import computation_factory
@@ -30,8 +32,8 @@ from tensorflow_federated.python.core.impl.types import placements
 from tensorflow_federated.python.core.impl.types import type_serialization
 
 
-_TEST_DATA = building_blocks.Data(
-    'data', computation_types.TensorType(np.int32)
+_TEST_LITERAL = building_blocks.Literal(
+    1, computation_types.TensorType(np.int32)
 )
 
 
@@ -411,25 +413,38 @@ class ComputationBuildingBlocksTest(absltest.TestCase):
     self._serialize_deserialize_roundtrip_test(concrete_federated_map)
 
   def test_basic_functionality_of_data_class(self):
+    test_proto = array.to_proto(np.array([1, 2, 3], np.int32))
+    any_proto = any_pb2.Any()
+    any_proto.Pack(test_proto)
     x = building_blocks.Data(
-        '/tmp/mydata', computation_types.SequenceType(np.int32)
+        any_proto, computation_types.SequenceType(np.int32)
     )
     self.assertEqual(str(x.type_signature), 'int32*')
-    self.assertEqual(x.uri, '/tmp/mydata')
+    self.assertEqual(x.content, any_proto)
+    arr = array_pb2.Array()
+    x.content.Unpack(arr)
+    self.assertEqual(arr, test_proto)
+    as_string = str(id(any_proto))
     self.assertEqual(
-        repr(x), "Data('/tmp/mydata', SequenceType(TensorType(np.int32)))"
+        repr(x), f'Data({as_string}, SequenceType(TensorType(np.int32)))'
     )
-    self.assertEqual(x.compact_representation(), '/tmp/mydata')
+    self.assertEqual(
+        x.compact_representation(),
+        as_string,
+    )
     x_proto = x.proto
     self.assertEqual(
         type_serialization.deserialize_type(x_proto.type), x.type_signature
     )
     self.assertEqual(x_proto.WhichOneof('computation'), 'data')
-    self.assertEqual(x_proto.data.uri, x.uri)
+    self.assertEqual(x_proto.data.content, x.content)
     self._serialize_deserialize_roundtrip_test(x)
 
   def test_data_children_is_empty(self):
-    data = building_blocks.Data('a', np.int32)
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array(1, np.int32)
+    )
+    data = building_blocks.Data(any_proto, np.int32)
     self.assertEqual([], list(data.children()))
 
   def test_basic_functionality_of_compiled_computation_class(self):
@@ -583,22 +598,22 @@ class SelectionTest(parameterized.TestCase):
       (
           'name',
           building_blocks.Selection(
-              building_blocks.Struct([('x', _TEST_DATA)]),
+              building_blocks.Struct([('x', _TEST_LITERAL)]),
               name='x',
           ),
           building_blocks.Selection(
-              building_blocks.Struct([('x', _TEST_DATA)]),
+              building_blocks.Struct([('x', _TEST_LITERAL)]),
               name='x',
           ),
       ),
       (
           'index',
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL]),
               index=0,
           ),
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL]),
               index=0,
           ),
       ),
@@ -611,33 +626,37 @@ class SelectionTest(parameterized.TestCase):
       (
           'different_source',
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL]),
               index=0,
           ),
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA, _TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL, _TEST_LITERAL]),
               index=0,
           ),
       ),
       (
           'different_name',
           building_blocks.Selection(
-              building_blocks.Struct([('x', _TEST_DATA), ('y', _TEST_DATA)]),
+              building_blocks.Struct(
+                  [('x', _TEST_LITERAL), ('y', _TEST_LITERAL)]
+              ),
               name='x',
           ),
           building_blocks.Selection(
-              building_blocks.Struct([('x', _TEST_DATA), ('y', _TEST_DATA)]),
+              building_blocks.Struct(
+                  [('x', _TEST_LITERAL), ('y', _TEST_LITERAL)]
+              ),
               name='y',
           ),
       ),
       (
           'different_index',
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA, _TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL, _TEST_LITERAL]),
               index=0,
           ),
           building_blocks.Selection(
-              building_blocks.Struct([_TEST_DATA, _TEST_DATA]),
+              building_blocks.Struct([_TEST_LITERAL, _TEST_LITERAL]),
               index=1,
           ),
       ),
@@ -653,8 +672,8 @@ class SelectionTest(parameterized.TestCase):
               building_blocks.Struct([
                   (
                       'x',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          1, computation_types.TensorType(np.int32)
                       ),
                   ),
               ]),
@@ -664,8 +683,8 @@ class SelectionTest(parameterized.TestCase):
               building_blocks.Struct([
                   (
                       'x',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          1, computation_types.TensorType(np.int32)
                       ),
                   ),
               ]),
@@ -676,16 +695,16 @@ class SelectionTest(parameterized.TestCase):
           'index',
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=0,
           ),
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=0,
@@ -700,19 +719,19 @@ class SelectionTest(parameterized.TestCase):
           'different_source',
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=0,
           ),
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=0,
@@ -724,14 +743,14 @@ class SelectionTest(parameterized.TestCase):
               building_blocks.Struct([
                   (
                       'x',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          2, computation_types.TensorType(np.int32)
                       ),
                   ),
                   (
                       'y',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          1, computation_types.TensorType(np.int32)
                       ),
                   ),
               ]),
@@ -741,14 +760,14 @@ class SelectionTest(parameterized.TestCase):
               building_blocks.Struct([
                   (
                       'x',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          1, computation_types.TensorType(np.int32)
                       ),
                   ),
                   (
                       'y',
-                      building_blocks.Data(
-                          'data', computation_types.TensorType(np.int32)
+                      building_blocks.Literal(
+                          1, computation_types.TensorType(np.int32)
                       ),
                   ),
               ]),
@@ -759,22 +778,22 @@ class SelectionTest(parameterized.TestCase):
           'different_index',
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=0,
           ),
           building_blocks.Selection(
               building_blocks.Struct([
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ]),
               index=1,
@@ -792,13 +811,13 @@ class StructTest(parameterized.TestCase):
       (
           'container_type_none',
           building_blocks.Struct([
-              building_blocks.Data(
-                  'data', computation_types.TensorType(np.int32)
+              building_blocks.Literal(
+                  1, computation_types.TensorType(np.int32)
               ),
           ]),
           building_blocks.Struct([
-              building_blocks.Data(
-                  'data', computation_types.TensorType(np.int32)
+              building_blocks.Literal(
+                  1, computation_types.TensorType(np.int32)
               ),
           ]),
       ),
@@ -806,16 +825,16 @@ class StructTest(parameterized.TestCase):
           'container_type_list',
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
           ),
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
@@ -831,19 +850,19 @@ class StructTest(parameterized.TestCase):
           'different_elements',
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
           ),
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
@@ -853,16 +872,16 @@ class StructTest(parameterized.TestCase):
           'different_container_type',
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
           ),
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=tuple,
@@ -877,13 +896,13 @@ class StructTest(parameterized.TestCase):
       (
           'container_type_none',
           building_blocks.Struct([
-              building_blocks.Data(
-                  'data', computation_types.TensorType(np.int32)
+              building_blocks.Literal(
+                  1, computation_types.TensorType(np.int32)
               ),
           ]),
           building_blocks.Struct([
-              building_blocks.Data(
-                  'data', computation_types.TensorType(np.int32)
+              building_blocks.Literal(
+                  1, computation_types.TensorType(np.int32)
               ),
           ]),
       ),
@@ -891,16 +910,16 @@ class StructTest(parameterized.TestCase):
           'container_type_list',
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
           ),
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
@@ -912,7 +931,7 @@ class StructTest(parameterized.TestCase):
 
   def test_hash_returns_same_value_with_different_container_type(self):
     type_signature = computation_types.TensorType(np.int32)
-    element = building_blocks.Data('data', type_signature)
+    element = building_blocks.Literal(1, type_signature)
     struct = building_blocks.Struct([element], container_type=list)
     other = building_blocks.Struct([element], container_type=tuple)
 
@@ -923,19 +942,19 @@ class StructTest(parameterized.TestCase):
           'different_elements',
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
           ),
           building_blocks.Struct(
               [
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
-                  building_blocks.Data(
-                      'data', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               ],
               container_type=list,
@@ -953,7 +972,7 @@ class CallTest(parameterized.TestCase):
     type_signature = computation_types.TensorType(np.int32)
     result = building_blocks.Reference('x', type_signature)
     fn = building_blocks.Lambda('x', type_signature, result)
-    arg = building_blocks.Data('data', type_signature)
+    arg = building_blocks.Literal(1, type_signature)
     call = building_blocks.Call(fn, arg)
     other = building_blocks.Call(fn, arg)
 
@@ -971,8 +990,8 @@ class CallTest(parameterized.TestCase):
                       'x', computation_types.TensorType(np.int32)
                   ),
               ),
-              building_blocks.Data(
-                  'data', computation_types.TensorType(np.int32)
+              building_blocks.Literal(
+                  1, computation_types.TensorType(np.int32)
               ),
           ),
           building_blocks.Call(
@@ -1244,8 +1263,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1255,8 +1274,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'different',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1269,8 +1288,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      2, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1280,8 +1299,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      2, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1309,8 +1328,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1320,8 +1339,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'different',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1334,8 +1353,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1345,8 +1364,8 @@ class BlockTest(parameterized.TestCase):
           building_blocks.Block(
               [(
                   'x',
-                  building_blocks.Data(
-                      'local', computation_types.TensorType(np.int32)
+                  building_blocks.Literal(
+                      1, computation_types.TensorType(np.int32)
                   ),
               )],
               building_blocks.Reference(
@@ -1429,57 +1448,83 @@ class IntrinsicTest(parameterized.TestCase):
 class DataTest(parameterized.TestCase):
 
   def test_eq_returns_true(self):
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3], np.int32)
+    )
     type_signature = computation_types.TensorType(np.int32)
-    data = building_blocks.Data('data', type_signature)
-    other = building_blocks.Data('data', type_signature)
+    data = building_blocks.Data(any_proto, type_signature)
+    other = building_blocks.Data(any_proto, type_signature)
 
     self.assertIsNot(data, other)
     self.assertEqual(data, other)
 
-  @parameterized.named_parameters(
-      (
-          'different_uri',
-          building_blocks.Data('data', computation_types.TensorType(np.int32)),
-          building_blocks.Data(
-              'different', computation_types.TensorType(np.int32)
-          ),
-      ),
-      (
-          'different_type_signature',
-          building_blocks.Data('data', computation_types.TensorType(np.int32)),
-          building_blocks.Data(
-              'data', computation_types.TensorType(np.float32)
-          ),
-      ),
-  )
-  def test_eq_returns_false(self, data, other):
+  def test_eq_returns_false_different_content(self):
+    any_proto1 = (
+        building_block_test_utils.create_test_any_proto_for_array_value(
+            np.array([1, 2, 3], np.int32)
+        )
+    )
+    type_signature = computation_types.TensorType(np.int32)
+    data = building_blocks.Data(any_proto1, type_signature)
+
+    any_proto2 = (
+        building_block_test_utils.create_test_any_proto_for_array_value(
+            np.array([4], np.int32)
+        )
+    )
+    other = building_blocks.Data(any_proto2, type_signature)
+    self.assertIsNot(data, other)
+    self.assertNotEqual(data, other)
+
+  def test_eq_returns_false_different_type_signatures(self):
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 1, 1], np.int32)
+    )
+    type_signature1 = computation_types.TensorType(np.int32)
+    type_signature2 = computation_types.TensorType(np.float32)
+    data = building_blocks.Data(any_proto, type_signature1)
+    other = building_blocks.Data(any_proto, type_signature2)
+
     self.assertIsNot(data, other)
     self.assertNotEqual(data, other)
 
   def test_hash_returns_same_value(self):
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3], np.int32)
+    )
     type_signature = computation_types.TensorType(np.int32)
-    data = building_blocks.Data('data', type_signature)
-    other = building_blocks.Data('data', type_signature)
+    data = building_blocks.Data(any_proto, type_signature)
+    other = building_blocks.Data(any_proto, type_signature)
 
     self.assertEqual(hash(data), hash(other))
 
-  @parameterized.named_parameters(
-      (
-          'different_uri',
-          building_blocks.Data('data', computation_types.TensorType(np.int32)),
-          building_blocks.Data(
-              'different', computation_types.TensorType(np.int32)
-          ),
-      ),
-      (
-          'different_type_signature',
-          building_blocks.Data('data', computation_types.TensorType(np.int32)),
-          building_blocks.Data(
-              'data', computation_types.TensorType(np.float32)
-          ),
-      ),
-  )
-  def test_hash_returns_different_value(self, data, other):
+  def test_hash_returns_different_value_for_different_content(self):
+    any_proto1 = (
+        building_block_test_utils.create_test_any_proto_for_array_value(
+            np.array([1, 2, 3], np.int32)
+        )
+    )
+    type_signature = computation_types.TensorType(np.int32)
+    data = building_blocks.Data(any_proto1, type_signature)
+
+    any_proto2 = (
+        building_block_test_utils.create_test_any_proto_for_array_value(
+            np.array([4], np.int32)
+        )
+    )
+    other = building_blocks.Data(any_proto2, type_signature)
+    self.assertNotEqual(data, other)
+    self.assertNotEqual(hash(data), hash(other))
+
+  def test_hash_returns_different_value_for_different_type_signatures(self):
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 1, 1], np.int32)
+    )
+    type_signature1 = computation_types.TensorType(np.int32)
+    type_signature2 = computation_types.TensorType(np.float32)
+    data = building_blocks.Data(any_proto, type_signature1)
+    other = building_blocks.Data(any_proto, type_signature2)
+
     self.assertNotEqual(data, other)
     self.assertNotEqual(hash(data), hash(other))
 
@@ -2243,24 +2288,24 @@ class LiteralTest(parameterized.TestCase):
 class RepresentationTest(absltest.TestCase):
 
   def test_returns_string_for_block(self):
-    data = building_blocks.Data('data', np.int32)
+    data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     ref = building_blocks.Reference('c', np.int32)
     comp = building_blocks.Block((('a', data), ('b', data)), ref)
 
-    self.assertEqual(comp.compact_representation(), '(let a=data,b=data in c)')
+    self.assertEqual(comp.compact_representation(), '(let a=1,b=1 in c)')
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         '(let\n'
-        '  a=data,\n'
-        '  b=data\n'
+        '  a=1,\n'
+        '  b=1\n'
         ' in c)'
     )
     self.assertEqual(
         comp.structural_representation(),
-        '                 Block\n'
-        '                /     \\\n'
-        '[a=data, b=data]       Ref(c)'
+        '                     Block\n'
+        '                    /     \\\n'
+        '[a=Lit(1), b=Lit(1)]       Ref(c)'
     )
     # pyformat: enable
 
@@ -2309,11 +2354,15 @@ class RepresentationTest(absltest.TestCase):
     self.assertEqual(comp.structural_representation(), 'Compiled(a)')
 
   def test_returns_string_for_data(self):
-    comp = building_blocks.Data('data', np.int32)
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3], np.int32)
+    )
+    comp = building_blocks.Data(any_proto, np.int32)
 
-    self.assertEqual(comp.compact_representation(), 'data')
-    self.assertEqual(comp.formatted_representation(), 'data')
-    self.assertEqual(comp.structural_representation(), 'data')
+    s = str(id(any_proto))
+    self.assertEqual(comp.compact_representation(), s)
+    self.assertEqual(comp.formatted_representation(), s)
+    self.assertEqual(comp.structural_representation(), f'Data({s})')
 
   def test_returns_string_for_intrinsic(self):
     comp_type = computation_types.TensorType(np.int32)
@@ -2383,44 +2432,46 @@ class RepresentationTest(absltest.TestCase):
     # pyformat: enable
 
   def test_returns_string_for_struct_with_names(self):
-    data = building_blocks.Data('data', np.int32)
-    comp = building_blocks.Struct([('a', data), ('b', data)])
+    literally = building_blocks.Literal(
+        2, computation_types.TensorType(np.int32)
+    )
+    comp = building_blocks.Struct([('a', literally), ('b', literally)])
 
-    self.assertEqual(comp.compact_representation(), '<a=data,b=data>')
+    self.assertEqual(comp.compact_representation(), '<a=2,b=2>')
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         '<\n'
-        '  a=data,\n'
-        '  b=data\n'
+        '  a=2,\n'
+        '  b=2\n'
         '>'
     )
     self.assertEqual(
         comp.structural_representation(),
         'Struct\n'
         '|\n'
-        '[a=data, b=data]'
+        '[a=Lit(2), b=Lit(2)]'
     )
     # pyformat: enable
 
   def test_returns_string_for_struct_with_no_names(self):
-    data = building_blocks.Data('data', np.int32)
+    data = building_blocks.Literal(3, computation_types.TensorType(np.int32))
     comp = building_blocks.Struct([data, data])
 
-    self.assertEqual(comp.compact_representation(), '<data,data>')
+    self.assertEqual(comp.compact_representation(), '<3,3>')
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         '<\n'
-        '  data,\n'
-        '  data\n'
+        '  3,\n'
+        '  3\n'
         '>'
     )
     self.assertEqual(
         comp.structural_representation(),
         'Struct\n'
         '|\n'
-        '[data, data]'
+        '[Lit(3), Lit(3)]'
     )
     # pyformat: enable
 
@@ -2447,28 +2498,30 @@ class RepresentationTest(absltest.TestCase):
 
     self.assertEqual(
         comp.compact_representation(),
-        'federated_aggregate(<data,data,(a -> data),(b -> data),(c -> data)>)',
+        'federated_aggregate(<federated_value_at_clients(1),1,(a -> 1),(b -> 1)'
+        ',(c -> 1)>)',
     )
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         'federated_aggregate(<\n'
-        '  data,\n'
-        '  data,\n'
-        '  (a -> data),\n'
-        '  (b -> data),\n'
-        '  (c -> data)\n'
+        '  federated_value_at_clients(1),\n'
+        '  1,\n'
+        '  (a -> 1),\n'
+        '  (b -> 1),\n'
+        '  (c -> 1)\n'
         '>)'
     )
     self.assertEqual(
         comp.structural_representation(),
-        '                    Call\n'
-        '                   /    \\\n'
-        'federated_aggregate      Struct\n'
-        '                         |\n'
-        '                         [data, data, Lambda(a), Lambda(b), Lambda(c)]\n'
-        '                                      |          |          |\n'
-        '                                      data       data       data'
+        '                     Call\n'
+        '                    /    \\\n'
+        ' federated_aggregate      Struct\n'
+        '                          |\n'
+        '                          [Call, Lit(1),  Lambda(a), Lambda(b), '
+        'Lambda(c)]\n'
+        '                          /    \\          |          |          |\n'
+        'federated_value_at_clients      Lit(1)    Lit(1)     Lit(1)     Lit(1)'
     )
     # pyformat: enable
 
@@ -2478,14 +2531,15 @@ class RepresentationTest(absltest.TestCase):
     )
 
     self.assertEqual(
-        comp.compact_representation(), 'federated_map(<(a -> a),data>)'
+        comp.compact_representation(),
+        'federated_map(<(a -> a),federated_value_at_clients(1)>)',
     )
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         'federated_map(<\n'
         '  (a -> a),\n'
-        '  data\n'
+        '  federated_value_at_clients(1)\n'
         '>)'
     )
     self.assertEqual(
@@ -2494,9 +2548,9 @@ class RepresentationTest(absltest.TestCase):
         '             /    \\\n'
         'federated_map      Struct\n'
         '                   |\n'
-        '                   [Lambda(a), data]\n'
-        '                    |\n'
-        '                    Ref(a)'
+        '                   [Lambda(a),                           Call]\n'
+        '                    |                                   /    \\\n'
+        '                    Ref(a)    federated_value_at_clients      Lit(1)'
     )
     # pyformat: enable
 
@@ -2523,37 +2577,35 @@ class RepresentationTest(absltest.TestCase):
 
   def test_returns_string_for_comp_with_right_overhang(self):
     ref = building_blocks.Reference('a', np.int32)
-    data = building_blocks.Data('data', np.int32)
-    tup = building_blocks.Struct([ref, data, data, data, data])
+    lit = building_blocks.Literal(1, computation_types.TensorType(np.int32))
+    tup = building_blocks.Struct([ref, lit, lit, lit, lit])
     sel = building_blocks.Selection(tup, index=0)
     fn = building_blocks.Lambda(ref.name, ref.type_signature, sel)
-    comp = building_blocks.Call(fn, data)
+    comp = building_blocks.Call(fn, lit)
 
-    self.assertEqual(
-        comp.compact_representation(), '(a -> <a,data,data,data,data>[0])(data)'
-    )
+    self.assertEqual(comp.compact_representation(), '(a -> <a,1,1,1,1>[0])(1)')
     # pyformat: disable
     self.assertEqual(
         comp.formatted_representation(),
         '(a -> <\n'
         '  a,\n'
-        '  data,\n'
-        '  data,\n'
-        '  data,\n'
-        '  data\n'
-        '>[0])(data)'
+        '  1,\n'
+        '  1,\n'
+        '  1,\n'
+        '  1\n'
+        '>[0])(1)'
     )
     self.assertEqual(
         comp.structural_representation(),
         '          Call\n'
         '         /    \\\n'
-        'Lambda(a)      data\n'
+        'Lambda(a)      Lit(1)\n'
         '|\n'
         'Sel(0)\n'
         '|\n'
         'Struct\n'
         '|\n'
-        '[Ref(a), data, data, data, data]'
+        '[Ref(a), Lit(1), Lit(1), Lit(1), Lit(1)]'
     )
     # pyformat: enable
 

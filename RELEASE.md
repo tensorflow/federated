@@ -20,7 +20,7 @@
     tracing and execution portions of TFF to begin using the `Literal`.
 *   Added an implementation of the Adafactor optimizer to
     `tff.learning.optimizers.build_adafactor`
-*   Added a new field, `content`, to the `Data` proto.
+*   Added a new field, `content`, to the `Data` proto and `Data` building block.
 
 ## Breaking Changes
 

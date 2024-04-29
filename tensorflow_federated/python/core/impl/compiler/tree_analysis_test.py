@@ -70,8 +70,7 @@ class NodesDependentOnPredicateTest(absltest.TestCase):
       tree_analysis.extract_nodes_consuming(None, lambda x: True)
 
   def test_raises_on_none_predicate(self):
-    data_type = computation_types.StructType([])
-    data = building_blocks.Data('whimsy', data_type)
+    data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     with self.assertRaises(TypeError):
       tree_analysis.extract_nodes_consuming(data, None)
 
@@ -192,20 +191,18 @@ class BroadcastDependentOnAggregateTest(absltest.TestCase):
         building_block_test_utils.create_whimsy_called_federated_broadcast()
     )
     value_type = broadcast.type_signature
-    zero = building_blocks.Data('zero', value_type.member)
-    accumulate_result = building_blocks.Data(
-        'accumulate_result', value_type.member
-    )
+    zero = building_blocks.Literal(1, value_type.member)
+    accumulate_result = building_blocks.Literal(2, value_type.member)
     accumulate = building_blocks.Lambda(
         'accumulate_parameter',
         [value_type.member, value_type.member],
         accumulate_result,
     )
-    merge_result = building_blocks.Data('merge_result', value_type.member)
+    merge_result = building_blocks.Literal(3, value_type.member)
     merge = building_blocks.Lambda(
         'merge_parameter', [value_type.member, value_type.member], merge_result
     )
-    report_result = building_blocks.Data('report_result', value_type.member)
+    report_result = building_blocks.Literal(4, value_type.member)
     report = building_blocks.Lambda(
         'report_parameter', value_type.member, report_result
     )
@@ -254,20 +251,18 @@ class AggregateDependentOnAggregateTest(absltest.TestCase):
         building_block_test_utils.create_whimsy_called_federated_broadcast()
     )
     value_type = broadcast.type_signature
-    zero = building_blocks.Data('zero', value_type.member)
-    accumulate_result = building_blocks.Data(
-        'accumulate_result', value_type.member
-    )
+    zero = building_blocks.Literal(1, value_type.member)
+    accumulate_result = building_blocks.Literal(2, value_type.member)
     accumulate = building_blocks.Lambda(
         'accumulate_parameter',
         [value_type.member, value_type.member],
         accumulate_result,
     )
-    merge_result = building_blocks.Data('merge_result', value_type.member)
+    merge_result = building_blocks.Literal(3, value_type.member)
     merge = building_blocks.Lambda(
         'merge_parameter', [value_type.member, value_type.member], merge_result
     )
-    report_result = building_blocks.Data('report_result', value_type.member)
+    report_result = building_blocks.Literal(4, value_type.member)
     report = building_blocks.Lambda(
         'report_parameter', value_type.member, report_result
     )
@@ -349,6 +344,34 @@ class ContainsNoUnboundReferencesTest(absltest.TestCase):
     self.assertFalse(tree_analysis.contains_no_unbound_references(fn))
 
 
+def _create_trivial_mean(value_type=np.int32):
+  """Returns a trivial federated mean."""
+  fed_value_type = computation_types.FederatedType(
+      value_type, placements.CLIENTS
+  )
+  any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+      np.array([1, 2, 3])
+  )
+  values = building_blocks.Data(any_proto, fed_value_type)
+
+  return building_block_factory.create_federated_mean(values, None)
+
+
+def _create_trivial_secure_sum(value_type=np.int32):
+  """Returns a trivial secure sum."""
+  federated_type = computation_types.FederatedType(
+      value_type, placements.CLIENTS
+  )
+  any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+      np.array([1, 2, 3])
+  )
+  value = building_blocks.Data(any_proto, federated_type)
+  bitwidth = building_blocks.Data(any_proto, value_type)
+  return building_block_factory.create_federated_secure_sum_bitwidth(
+      value, bitwidth
+  )
+
+
 non_aggregation_intrinsics = building_blocks.Struct([
     (
         None,
@@ -362,20 +385,9 @@ non_aggregation_intrinsics = building_blocks.Struct([
     ),
 ])
 
-unit = computation_types.StructType([])
-trivial_aggregate = (
-    building_block_test_utils.create_whimsy_called_federated_aggregate(
-        value_type=unit
-    )
-)
-trivial_mean = building_block_test_utils.create_whimsy_called_federated_mean(
-    unit
-)
-trivial_sum = building_block_test_utils.create_whimsy_called_federated_sum(unit)
-# TODO: b/120439632 - Enable once federated_mean accepts structured weights.
-# trivial_weighted_mean = ...
-trivial_secure_sum = building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-    unit
+trivial_mean = _create_trivial_mean(value_type=computation_types.StructType([]))
+trivial_secure_sum = _create_trivial_secure_sum(
+    value_type=computation_types.StructType([])
 )
 
 
@@ -383,12 +395,7 @@ class ContainsAggregationShared(parameterized.TestCase):
 
   @parameterized.named_parameters([
       ('non_aggregation_intrinsics', non_aggregation_intrinsics),
-      ('trivial_aggregate', trivial_aggregate),
       ('trivial_mean', trivial_mean),
-      ('trivial_sum', trivial_sum),
-      # TODO: b/120439632 - Enable once federated_mean accepts structured
-      # weight.
-      # ('trivial_weighted_mean', trivial_weighted_mean),
       ('trivial_secure_sum', trivial_secure_sum),
   ])
   def test_returns_none(self, comp):
@@ -396,9 +403,12 @@ class ContainsAggregationShared(parameterized.TestCase):
     self.assertEmpty(tree_analysis.find_secure_aggregation_in_tree(comp))
 
   def test_throws_on_unresolvable_function_call(self):
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
     comp = building_blocks.Call(
         building_blocks.Data(
-            'unknown_func',
+            any_proto,
             computation_types.FunctionType(
                 None,
                 computation_types.FederatedType(np.int32, placements.CLIENTS),
@@ -416,12 +426,15 @@ class ContainsAggregationShared(parameterized.TestCase):
   ):
     input_type = computation_types.FederatedType(np.int32, placements.CLIENTS)
     output_type = np.int32
+    any_proto = building_block_test_utils.create_test_any_proto_for_array_value(
+        np.array([1, 2, 3])
+    )
     comp = building_blocks.Call(
         building_blocks.Data(
-            'unknown_func',
+            any_proto,
             computation_types.FunctionType(input_type, output_type),
         ),
-        building_blocks.Data('client_data', input_type),
+        building_blocks.Data(any_proto, input_type),
     )
 
     self.assertEmpty(tree_analysis.find_unsecure_aggregation_in_tree(comp))
@@ -461,9 +474,7 @@ class ContainsSecureAggregation(parameterized.TestCase):
     self.assert_one_aggregation(simple_secure_sum)
 
   def test_returns_str_on_nested_secure_aggregation(self):
-    comp = building_block_test_utils.create_whimsy_called_federated_secure_sum_bitwidth(
-        (np.int32, np.int32)
-    )
+    comp = _create_trivial_secure_sum((np.int32, np.int32))
     self.assert_one_aggregation(comp)
 
 
@@ -496,7 +507,7 @@ class CheckHasUniqueNamesTest(absltest.TestCase):
     tree_analysis.check_has_unique_names(lambda_1)
 
   def test_ok_on_multiple_no_arg_lambdas(self):
-    data = building_blocks.Data('x', np.int32)
+    data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     lambda_1 = building_blocks.Lambda(None, None, data)
     lambda_2 = building_blocks.Lambda(None, None, data)
     tup = building_blocks.Struct([lambda_1, lambda_2])
@@ -516,30 +527,30 @@ class CheckHasUniqueNamesTest(absltest.TestCase):
     tree_analysis.check_has_unique_names(lambda_2)
 
   def test_ok_on_single_block(self):
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     single_block = building_blocks.Block([('x', x_data)], x_data)
     tree_analysis.check_has_unique_names(single_block)
 
   def test_raises_on_sequential_binding_of_same_variable_in_block(self):
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     block = building_blocks.Block([('x', x_data), ('x', x_data)], x_data)
     with self.assertRaises(tree_analysis.NonuniqueNameError):
       tree_analysis.check_has_unique_names(block)
 
   def test_ok_on_sequential_binding_of_different_variable_in_block(self):
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     block = building_blocks.Block([('x', x_data), ('y', x_data)], x_data)
     tree_analysis.check_has_unique_names(block)
 
   def test_raises_block_rebinding_of_lambda_variable(self):
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     single_block = building_blocks.Block([('x', x_data)], x_data)
     lambda_1 = building_blocks.Lambda('x', np.int32, single_block)
     with self.assertRaises(tree_analysis.NonuniqueNameError):
       tree_analysis.check_has_unique_names(lambda_1)
 
   def test_ok_block_binding_of_new_variable(self):
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     single_block = building_blocks.Block([('x', x_data)], x_data)
     lambda_1 = building_blocks.Lambda('y', np.int32, single_block)
     tree_analysis.check_has_unique_names(lambda_1)
@@ -547,7 +558,7 @@ class CheckHasUniqueNamesTest(absltest.TestCase):
   def test_raises_lambda_rebinding_of_block_variable(self):
     x_ref = building_blocks.Reference('x', np.int32)
     lambda_1 = building_blocks.Lambda('x', np.int32, x_ref)
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     single_block = building_blocks.Block([('x', x_data)], lambda_1)
     with self.assertRaises(tree_analysis.NonuniqueNameError):
       tree_analysis.check_has_unique_names(single_block)
@@ -555,7 +566,7 @@ class CheckHasUniqueNamesTest(absltest.TestCase):
   def test_ok_lambda_binding_of_new_variable(self):
     y_ref = building_blocks.Reference('y', np.int32)
     lambda_1 = building_blocks.Lambda('y', np.int32, y_ref)
-    x_data = building_blocks.Data('x', np.int32)
+    x_data = building_blocks.Literal(1, computation_types.TensorType(np.int32))
     single_block = building_blocks.Block([('x', x_data)], lambda_1)
     tree_analysis.check_has_unique_names(single_block)
 
