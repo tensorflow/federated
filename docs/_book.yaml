@@ -81,6 +81,8 @@ upper_tabs:
         path: /federated/federated_core
       - title: "TFF for Federated Learning Research"
         path: /federated/tff_for_research
+      - title: "FAQ"
+        path: /federated/faq
     - name: API
       skip_translation: true
       contents:
