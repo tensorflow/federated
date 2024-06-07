@@ -23,8 +23,7 @@ build --spawn_strategy=local
 build --compilation_mode=opt
 
 # Enable fast C++ protocol buffers, 10x speedup over pure Python.
-# TODO: b/306021118 - Temporarily disable `use_fast_cpp_protos`.
-# build --define=use_fast_cpp_protos=true
+build --define=use_fast_cpp_protos=true
 build --define=allow_oversize_protos=true
 
 # pybind_abseil does not include a __init__.py, which breaks dependencies when
