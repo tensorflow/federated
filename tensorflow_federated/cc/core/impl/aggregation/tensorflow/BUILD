@@ -29,10 +29,10 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@local_tsl//tsl/platform:refcount",
         "@org_tensorflow//tensorflow/core:framework",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core/platform:tstring",
-        "@org_tensorflow//tensorflow/tsl/platform:refcount",
     ],
 )
 
@@ -130,8 +130,8 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@local_tsl//tsl/platform:env",
         "@org_tensorflow//tensorflow/core/platform:env",
-        "@org_tensorflow//tensorflow/tsl/platform:env",
     ],
 )
 
@@ -165,8 +165,8 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
+        "@local_tsl//tsl/platform:env",
         "@org_tensorflow//tensorflow/core/platform:env",
-        "@org_tensorflow//tensorflow/tsl/platform:env",
     ],
 )
 

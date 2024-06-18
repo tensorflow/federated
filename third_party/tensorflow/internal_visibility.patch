@@ -1,13 +1,13 @@
 diff --git tensorflow/BUILD tensorflow/BUILD
-index 202553cd531..171eb04665c 100644
+index 5018c6e642e..cf3a1ca0760 100644
 --- tensorflow/BUILD
 +++ tensorflow/BUILD
-@@ -1039,7 +1039,7 @@ package_group(
+@@ -1057,7 +1057,7 @@ package_group(
          "//smartass/brain/configure/...",
          "//tensorflow/...",
          "//tensorflow_decision_forests/...",
 -        "//tensorflow_federated/...",
 +        "public",
+         "//tensorflow_models/google/recml/...",
          "//third_party/cloud_tpu/convergence_tools/sdc_monitoring/...",
          "//third_party/cloud_tpu/inference_converter/...",
-         "//third_party/py/cloud_ml_autoflow/...",

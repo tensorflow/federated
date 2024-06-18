@@ -23,7 +23,7 @@ limitations under the License
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "third_party/eigen3/Eigen/Core"
+#include "Eigen/Core"
 #include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/data_type.pb.h"
 

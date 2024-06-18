@@ -33,16 +33,16 @@ limitations under the License
 #include "absl/types/span.h"
 #include "tensorflow/compiler/tf2xla/literal_util.h"
 #include "tensorflow/compiler/tf2xla/type_util.h"
-#include "tensorflow/compiler/xla/client/client.h"
-#include "tensorflow/compiler/xla/client/client_library.h"
-#include "tensorflow/compiler/xla/client/global_data.h"
-#include "tensorflow/compiler/xla/client/xla_computation.h"
-#include "tensorflow/compiler/xla/literal.h"
-#include "tensorflow/compiler/xla/service/hlo.pb.h"
-#include "tensorflow/compiler/xla/shape.h"
-#include "tensorflow/compiler/xla/stream_executor/platform.h"
-#include "tensorflow/compiler/xla/xla.pb.h"
-#include "tensorflow/compiler/xla/xla_data.pb.h"
+#include "xla/client/client.h"
+#include "xla/client/client_library.h"
+#include "xla/client/global_data.h"
+#include "xla/client/xla_computation.h"
+#include "xla/literal.h"
+#include "xla/service/hlo.pb.h"
+#include "xla/shape.h"
+#include "xla/stream_executor/platform.h"
+#include "xla/xla.pb.h"
+#include "xla/xla_data.pb.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -58,7 +58,7 @@ limitations under the License
 // clang-format off
 // In TF 2.17 MultiPlatformManager was renamed to PlatformManager. Remove
 // this code when the OSS build gets updated to TF 2.17+.
-#include "tensorflow/compiler/xla/stream_executor/multi_platform_manager.h"
+#include "xla/stream_executor/multi_platform_manager.h"
 namespace stream_executor {
 using PlatformManager = MultiPlatformManager;
 } // namespace stream_executor

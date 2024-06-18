@@ -1,8 +1,8 @@
 diff --git tensorflow/compiler/tf2xla/BUILD tensorflow/compiler/tf2xla/BUILD
-index 22d9877bed9..3f6b421465d 100644
+index c1a2243de20..f4e24260aea 100644
 --- tensorflow/compiler/tf2xla/BUILD
 +++ tensorflow/compiler/tf2xla/BUILD
-@@ -46,7 +46,7 @@ package_group(
+@@ -47,7 +47,7 @@ package_group(
      packages = [
          "//platforms/performance/automl/...",
          "//tensorflow/...",

@@ -22,7 +22,7 @@ limitations under the License
 #include "googletest/include/gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "third_party/eigen3/Eigen/Core"
+#include "Eigen/Core"
 #include "tensorflow/core/framework/numeric_types.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_testutil.h"

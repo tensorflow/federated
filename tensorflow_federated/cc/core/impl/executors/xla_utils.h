@@ -17,8 +17,8 @@ limitations under the License
 #define THIRD_PARTY_TENSORFLOW_FEDERATED_CC_CORE_IMPL_EXECUTORS_XLA_UTILS_H_
 
 #include "absl/status/statusor.h"
-#include "tensorflow/compiler/xla/literal.h"
-#include "tensorflow/compiler/xla/shape.h"
+#include "xla/literal.h"
+#include "xla/shape.h"
 #include "tensorflow_federated/proto/v0/array.pb.h"
 #include "tensorflow_federated/proto/v0/computation.pb.h"
 #include "tensorflow_federated/proto/v0/data_type.pb.h"

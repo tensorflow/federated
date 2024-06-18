@@ -44,7 +44,7 @@ typing-extensions>=4.5.0,==4.5.*
 
 # The version of this dependency should match the version in
 # https://github.com/google-parfait/tensorflow-federated/blob/main/WORKSPACE.
-tensorflow>=2.14.0,==2.14.*
+tensorflow~=2.16.1
 
 # TODO: b/315515548 - Required because current dependencies are pulling in later
 # versions which are causing opaque failures.

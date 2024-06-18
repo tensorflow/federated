@@ -23,12 +23,15 @@ http_archive(
     strip_prefix = "bazel-skylib-1.3.0",
 )
 
-http_archive(
-    name = "com_github_grpc_grpc",
-    url = "https://github.com/grpc/grpc/archive/refs/tags/v1.50.0.tar.gz",
-    sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
-    strip_prefix = "grpc-1.50.0",
-)
+# TODO: b/347937669 - Temporarily disable the direct dependency on
+# `com_github_grpc_grpc`, for now we pick this dependency up from the
+# TensorFlow workspace.
+# http_archive(
+#     name = "com_github_grpc_grpc",
+#     url = "https://github.com/grpc/grpc/archive/refs/tags/v1.50.0.tar.gz",
+#     sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
+#     strip_prefix = "grpc-1.50.0",
+# )
 
 http_archive(
     name = "com_google_benchmark",
@@ -74,8 +77,8 @@ http_archive(
     strip_prefix = "protobuf-3.21.9",
 )
 
-# TODO: b/333391041 - Temporarily disable the direct dependency on
-# `eigen`, for now we pick this dependency up from the TensorFlow workspace.
+# TODO: b/333391041 - Temporarily disable the direct dependency on `eigen`, for
+# now we pick this dependency up from the TensorFlow workspace.
 # http_archive(
 #     name = "eigen",
 #     url = "https://gitlab.com/libeigen/eigen/archive/refs/tags/3.4.0.tar.gz",
@@ -91,14 +94,14 @@ http_archive(
 # https://github.com/google-parfait/tensorflow-federated/blob/main/requirements.txt.
 http_archive(
     name = "org_tensorflow",
-    url = "https://github.com/tensorflow/tensorflow/archive/refs/tags/v2.14.0.tar.gz",
+    url = "https://github.com/tensorflow/tensorflow/archive/refs/tags/v2.16.1.tar.gz",
     patches = [
         "//third_party/tensorflow:internal_visibility.patch",
         "//third_party/tensorflow:python_toolchain.patch",
         "//third_party/tensorflow:tf2xla_visibility.patch",
     ],
-    sha256 = "ce357fd0728f0d1b0831d1653f475591662ec5bca736a94ff789e6b1944df19f",
-    strip_prefix = "tensorflow-2.14.0",
+    sha256 = "c729e56efc945c6df08efe5c9f5b8b89329c7c91b8f40ad2bb3e13900bd4876d",
+    strip_prefix = "tensorflow-2.16.1",
 )
 
 # This commit is determined by
@@ -140,6 +143,24 @@ http_archive(
     strip_prefix = "rules_python-0.31.0",
 )
 
+# TODO: b/347940678 - Temporarily disable the direct dependency on `tsl`, for
+# now we pick this dependency up from the TensorFlow workspace.
+# http_archive(
+#     name = "tsl",
+#     url = "https://github.com/google/tsl/archive/5fdb99d897eadddd136c41156fbda82c6244d60a.tar.gz",
+#     sha256 = "414f9929d6a631aa225093e24e657e1a28c5e84da8e280f1636db65fe24e4b83",
+#     strip_prefix = "tsl-5fdb99d897eadddd136c41156fbda82c6244d60a",
+# )
+
+# TODO: b/347937714 - Temporarily disable the direct dependency on `xla`, for
+# now we pick this dependency up from the TensorFlow workspace.
+# http_archive(
+#     name = "xla",
+#     url = "https://github.com/openxla/xla/archive/940e3a27542b7ce76666173e7b287aa2a9263916.tar.gz",
+#     sha256 = "bcdc778e5a456839869dea796117b723bdea488075bd9555fe118fd8d6fcf25e",
+#     strip_prefix = "xla-940e3a27542b7ce76666173e7b287aa2a9263916",
+# )
+
 #
 # Inlined transitive dependencies, grouped by direct dependency.
 #
@@ -153,14 +174,17 @@ http_archive(
     build_file = "@pybind11_bazel//:pybind11.BUILD",
 )
 
+# TODO: b/347937669 - Temporarily disable the direct dependency on
+# `com_github_grpc_grpc`, for now we pick this dependency up from the
+# TensorFlow workspace.
 # Required by com_github_grpc_grpc. This commit is determined by
 # https://github.com/grpc/grpc/blob/v1.50.0/bazel/grpc_deps.bzl#L344.
-http_archive(
-    name = "upb",
-    url = "https://github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
-    sha256 = "017a7e8e4e842d01dba5dc8aa316323eee080cd1b75986a7d1f94d87220e6502",
-    strip_prefix = "upb-e4635f223e7d36dfbea3b722a4ca4807a7e882e2",
-)
+# http_archive(
+#     name = "upb",
+#     url = "https://github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
+#     sha256 = "017a7e8e4e842d01dba5dc8aa316323eee080cd1b75986a7d1f94d87220e6502",
+#     strip_prefix = "upb-e4635f223e7d36dfbea3b722a4ca4807a7e882e2",
+# )
 
 #
 # Transitive dependencies, grouped by direct dependency.
