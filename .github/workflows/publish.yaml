@@ -91,102 +91,17 @@ jobs:
             --title="TensorFlow Federated ${{ env.version }}" \
             --notes='${{ env.description }}'
 
-  build-package:
-    name: Build Package
-    needs: [publish-release]
-    runs-on: ubuntu-20.04
-    timeout-minutes: 60
-    steps:
-
-    - name: Checkout repository
-      uses: actions/checkout@v4.1.7
-      with:
-        ref: ${{ needs.publish-release.outputs.release-tag }}
-
-    - name: Authenticate to Google Cloud
-      id: auth
-      uses: google-github-actions/auth@v2.1.3
-      with:
-        credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
-        create_credentials_file: true
-
-    - name: Set up bazel repository cache
-      uses: actions/cache@v4.0.2
-      with:
-        path: "~/.cache/bazel/"
-        key: ${{ runner.os }}-bazel-${{ hashFiles('.bazelversion', '.bazelrc', 'WORKSPACE') }}
-        restore-keys: ${{ runner.os }}-bazel-
-
-    - name: Set up Python
-      uses: actions/setup-python@v5.1.0
-      with:
-        python-version: "3.11"
-        cache: "pip"
-
-    - name: Install Python dependencies
-      run: |
-        pip install --upgrade "pip"
-
-    - name: Build Python package
-      run: |
-        pip install --upgrade "numpy~=1.25"
-        bazelisk run //tools/python_package:build_python_package \
-            --build_tag_filters="-nokokoro,-nopresubmit,-requires-gpu-nvidia" \
-            --google_credentials="${{ steps.auth.outputs.credentials_file_path }}" \
-            --remote_cache="https://storage.googleapis.com/tensorflow-federated-bazel-cache/${{ github.job }}" \
-            -- \
-            --output_dir="${{ github.workspace }}/dist/"
-
-    - name: Upload Python package
-      uses: actions/upload-artifact@v4.3.3
-      with:
-        name: python-package-distributions
-        path: dist/*.whl
-
   test-package:
     name: Test Package
-    needs: [build-package]
-    runs-on: ubuntu-20.04
-    timeout-minutes: 5
-    steps:
-
-    - name: Checkout repository
-      uses: actions/checkout@v4.1.7
-      with:
-        ref: ${{ needs.publish-release.outputs.release-tag }}
-
-    - name: Download Python package
-      uses: actions/download-artifact@v4.1.7
-      with:
-        name: python-package-distributions
-        path: dist/
-
-    - name: Set up Python
-      uses: actions/setup-python@v5.1.0
-      with:
-        python-version: "3.11"
-        cache: "pip"
-
-    - name: Install Python dependencies
-      run: |
-        pip install --upgrade "pip"
-
-    - name: Test Python package
-      run: |
-        package="$(ls "${{ github.workspace }}/dist/"*".whl" | head -n1)"
-        actual_size="$(du -b "${package}" | cut -f1)"
-        maximum_size=80000000  # 80 MiB
-        if [[ "${actual_size}" -ge "${maximum_size}" ]]; then
-          echo "error: expected '${package}' to be less than '${maximum_size}' bytes, it was '${actual_size}' bytes" 1>&2
-          exit 1
-        fi
-        pip install --upgrade "${package}"
-        python -I -c "import tensorflow_federated as tff; print(tff.federated_computation(lambda: 'Hello World')())"
-        python -I -c "import tensorflow_federated as tff; print(tff.__version__)"
+    needs: [publish-release]
+    uses: ./.github/workflows/test_package.yaml
+    with:
+      ref: ${{ needs.publish-release.outputs.release-tag }}
+    secrets: inherit
 
   publish-package:
     name: Publish Package
-    needs: [build-package, test-package]
+    needs: [test-package]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
