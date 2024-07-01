@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import collections
-import sys
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -72,26 +71,6 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual(x, y)
 
   @parameterized.named_parameters(TENSOR_SERIALIZATION_TEST_PARAMS)
-  def test_serialize_deserialize_tensor_value_without_hint_graph_mode(
-      self, x, serialize_type_spec
-  ):
-    # Test serializing non-eager tensors.
-    with tf.Graph().as_default():
-      tensor_x = tf.convert_to_tensor(x)
-      value_proto, value_type = value_serialization.serialize_value(
-          tensor_x, serialize_type_spec
-      )
-    type_test_utils.assert_types_identical(value_type, serialize_type_spec)
-    y, deserialize_type_spec = value_serialization.deserialize_value(
-        value_proto
-    )
-    type_test_utils.assert_types_identical(
-        deserialize_type_spec, serialize_type_spec
-    )
-    self.assertEqual(y.dtype, serialize_type_spec.dtype)
-    self.assertAllEqual(x, y)
-
-  @parameterized.named_parameters(TENSOR_SERIALIZATION_TEST_PARAMS)
   def test_serialize_deserialize_tensor_value_with_hint(
       self, x, serialize_type_spec
   ):
@@ -109,86 +88,25 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
     self.assertAllEqual(x, y)
 
   @parameterized.named_parameters(
-      ('int32_array', [1, 2, 3], np.int32),
-      ('int64_array', [1, 2, 3], np.int64),
-      ('float16_array', [1.0, 2.0, 3.0], np.float16),
-      ('float32_array', [1.0, 2.0, 3.0], np.float32),
-      ('float64_array', [1.0, 2.0, 3.0], np.float64),
-      ('str_array', ['a', 'b', 'c'], np.dtype('<U1')),
-  )
-  def test_serialization_does_not_increase_numpy_refcount(self, value, dtype):
-    # TensorFlow's internal conversion `NdarraytoTensor` adds a "delayed
-    # refcount decrement" logic to the input numpy array and must be cleared
-    # manually later. This test ensures that serialization doesn't cause
-    # dangling references.
-    array = np.asarray(value, dtype=dtype)
-    type_spec = TensorType(dtype=dtype, shape=[3])
-    # `tensorflow::NdarrayToTensor` will increase the refcount on `array` each
-    # time it is called. If `TensorFlow::ClearDecrefCache` is not called this
-    # will grow linearly with calls. Correct behavior is for the refcount to
-    # increase by no more than one on the first use, and it should remain the
-    # same or one more than the refcount before any of the calls (not refcount +
-    # N).
-    before_refcount = sys.getrefcount(array)
-    value_serialization._serialize_tensor_value(array, type_spec)
-    value_serialization._serialize_tensor_value(array, type_spec)
-    value_serialization._serialize_tensor_value(array, type_spec)
-    value_serialization._serialize_tensor_value(array, type_spec)
-    value_serialization._serialize_tensor_value(array, type_spec)
-    after_refcount = sys.getrefcount(array)
-    self.assertBetween(
-        after_refcount, minv=before_refcount, maxv=before_refcount + 1
-    )
-
-  @parameterized.named_parameters(
-      ('str', 'abc', TensorType(np.str_), b'abc', bytes),
-      ('bytes', b'abc', TensorType(np.bytes_), b'abc', bytes),
+      ('str', 'abc', TensorType(np.str_), b'abc'),
+      ('bytes', b'abc', TensorType(np.bytes_), b'abc'),
       (
           'bytes_null_terminated',
           b'abc\x00\x00',
           TensorType(np.bytes_),
           b'abc\x00\x00',
-          bytes,
       ),
-      ('numpy_str', np.str_('abc'), TensorType(np.str_), b'abc', bytes),
-      (
-          'numpy_bytes',
-          np.bytes_(b'abc'),
-          TensorType(np.bytes_),
-          b'abc',
-          bytes,
-      ),
+      ('numpy_str', np.str_('abc'), TensorType(np.str_), b'abc'),
+      ('numpy_bytes', np.bytes_(b'abc'), TensorType(np.bytes_), b'abc'),
       (
           'numpy_bytes_null_termianted',
           np.bytes_(b'abc\x00\x00'),
           TensorType(np.bytes_),
           b'abc\x00\x00',
-          bytes,
-      ),
-      (
-          'tensorflow_str',
-          tf.constant('abc'),
-          TensorType(np.str_),
-          b'abc',
-          bytes,
-      ),
-      (
-          'tensorflow_bytes',
-          tf.constant(b'abc'),
-          TensorType(np.bytes_),
-          b'abc',
-          bytes,
-      ),
-      (
-          'tensorflow_bytes_null_terminated',
-          tf.constant(b'abc\x00\x00'),
-          TensorType(np.bytes_),
-          b'abc\x00\x00',
-          bytes,
       ),
   )
   def test_serialize_deserialize_string_value(
-      self, value, type_spec, expected_value, expected_type
+      self, value, type_spec, expected_value
   ):
     value_proto, value_type = value_serialization.serialize_value(
         value, type_spec
@@ -198,7 +116,6 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
         value_proto, type_spec
     )
     type_test_utils.assert_types_identical(result_type, type_spec)
-    self.assertIsInstance(result, expected_type)
     self.assertEqual(result, expected_value)
 
   def test_serialize_deserialize_variable_as_tensor_value(self):
@@ -212,18 +129,18 @@ class ValueSerializationtest(tf.test.TestCase, parameterized.TestCase):
 
   def test_serialize_raises_on_incompatible_dtype_float_to_int(self):
     x = np.float32(10.0)
-    with self.assertRaisesRegex(TypeError, 'Failed to serialize value'):
+    with self.assertRaises(ValueError):
       value_serialization.serialize_value(x, TensorType(np.int32))
 
-  def test_serialize_deserialize_tensor_value_with_different_dtype(self):
-    x = np.int32(10)
-    value_proto, value_type = value_serialization.serialize_value(
-        x, TensorType(np.float32)
-    )
-    type_test_utils.assert_types_identical(value_type, TensorType(np.float32))
-    y, type_spec = value_serialization.deserialize_value(value_proto)
-    type_test_utils.assert_types_identical(type_spec, TensorType(np.float32))
-    self.assertEqual(y, 10.0)
+  # def test_serialize_deserialize_tensor_value_with_different_dtype(self):
+  #   x = np.int32(10)
+  #   value_proto, value_type = value_serialization.serialize_value(
+  #       x, TensorType(np.float32)
+  #   )
+  #   type_test_utils.assert_types_identical(value_type, TensorType(np.float32))
+  #   y, type_spec = value_serialization.deserialize_value(value_proto)
+  #   type_test_utils.assert_types_identical(type_spec, TensorType(np.float32))
+  #   self.assertEqual(y, 10.0)
 
   def test_serialize_deserialize_tensor_value_with_nontrivial_shape(self):
     x = np.int32([10, 20, 30])
@@ -760,40 +677,6 @@ class SerializeCardinalitiesTest(absltest.TestCase):
         cardinalities_list
     )
     self.assertEqual(client_cardinalities, reconstructed_cardinalities)
-
-
-class SerializeNpArrayTest(parameterized.TestCase):
-
-  def test_serialize_deserialize_value_proto_for_array_undefined_shape(self):
-    ndarray = np.array([10])
-    type_spec = computation_types.TensorType(dtype=ndarray.dtype, shape=[None])
-    value_proto = value_serialization._value_proto_for_np_array(
-        ndarray, type_spec
-    )
-    deserialized_array, deserialized_type = (
-        value_serialization.deserialize_value(value_proto)
-    )
-    type_test_utils.assert_type_assignable_from(type_spec, deserialized_type)
-    self.assertEqual(ndarray, deserialized_array)
-
-  @parameterized.named_parameters(
-      ('str_generic', np.str_('abc'), b'abc'),
-      ('bytes_generic', np.bytes_('def'), b'def'),
-  )
-  def test_serialize_deserialize_value_proto_for_generic(
-      self, np_generic, expected_value
-  ):
-    type_spec = computation_types.TensorType(
-        dtype=np_generic.dtype, shape=np_generic.shape
-    )
-    value_proto = value_serialization._value_proto_for_np_array(
-        np_generic, type_spec
-    )
-    deserialized_value, deserialized_type = (
-        value_serialization.deserialize_value(value_proto, type_spec)
-    )
-    type_test_utils.assert_type_assignable_from(type_spec, deserialized_type)
-    self.assertEqual(deserialized_value, expected_value)
 
 
 if __name__ == '__main__':

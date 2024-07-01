@@ -34,8 +34,15 @@ absl::StatusOr<tensorflow::TensorShape> TensorShapeFromArrayShape(
 tensorflow::PartialTensorShape PartialTensorShapeFromArrayShape(
     const v0::ArrayShape& shape_pb);
 
-// Creates a tensorflow::Tensor from a v0::Array.
+// Creates an v0::Array from a tensorflow::Tensor.
+absl::StatusOr<v0::Array> ArrayFromTensor(const tensorflow::Tensor& tensor);
+absl::StatusOr<v0::Array> ArrayContentFromTensor(
+    const tensorflow::Tensor& tensor);
+
+// Creates a tensorflow::Tensor from an v0::Array.
 absl::StatusOr<tensorflow::Tensor> TensorFromArray(const v0::Array& array_pb);
+absl::StatusOr<tensorflow::Tensor> TensorFromArrayContent(
+    const v0::Array& array_pb);
 
 std::string GetNodeName(absl::string_view tensor_name);
 

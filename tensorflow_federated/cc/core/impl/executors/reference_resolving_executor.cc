@@ -353,7 +353,7 @@ ReferenceResolvingExecutor::CreateExecutorValue(const v0::Value& value_pb) {
   switch (value_pb.value_case()) {
     case v0::Value::kFederated:
     case v0::Value::kSequence:
-    case v0::Value::kTensor: {
+    case v0::Value::kArray: {
       return std::make_shared<ExecutorValue>(
           TFF_TRY(child_executor_->CreateValue(value_pb)));
     }

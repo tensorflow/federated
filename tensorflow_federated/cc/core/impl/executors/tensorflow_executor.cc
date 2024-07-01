@@ -798,8 +798,8 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
 
   absl::StatusOr<ExecutorValue> CreateValueAny(const v0::Value& value_pb) {
     switch (value_pb.value_case()) {
-      case v0::Value::kTensor:
-        return CreateValueTensor(value_pb);
+      case v0::Value::kArray:
+        return CreateValueArray(value_pb);
       case v0::Value::kComputation:
         return CreateValueComputation(value_pb.computation());
       case v0::Value::kStruct:
@@ -810,6 +810,10 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
         return absl::UnimplementedError(
             absl::StrCat("Unknown value proto type ", value_pb.value_case()));
     }
+  }
+
+  absl::StatusOr<ExecutorValue> CreateValueArray(const v0::Value& value_pb) {
+    return ExecutorValue(TFF_TRY(DeserializeTensorValue(value_pb)));
   }
 
   absl::StatusOr<ExecutorValue> CreateValueComputation(
@@ -868,10 +872,6 @@ class TensorFlowExecutor : public ExecutorBase<ValueFuture> {
             "for computations and intrinsics. Found computation of type ",
             comp_pb.computation_case()));
     }
-  }
-
-  absl::StatusOr<ExecutorValue> CreateValueTensor(const v0::Value& value_pb) {
-    return ExecutorValue(TFF_TRY(DeserializeTensorValue(value_pb)));
   }
 
   absl::StatusOr<ExecutorValue> CreateValueStruct(

@@ -78,6 +78,11 @@ def to_proto(dtype: type[np.generic]) -> data_type_pb2.DataType:
     raise NotImplementedError(f'Unexpected dtype found: {dtype}.')
 
 
+def is_valid_dtype(dtype: type[np.generic]) -> bool:
+  """Returns `True` if `dtype` is valid, otherwise `False`."""
+  return dtype in _DTYPE_TO_PROTO
+
+
 def infer_dtype(
     obj: Union[bool, int, float, complex, str, bytes]
 ) -> type[np.generic]:
