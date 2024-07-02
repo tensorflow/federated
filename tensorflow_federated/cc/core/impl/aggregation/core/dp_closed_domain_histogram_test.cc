@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "tensorflow_federated/cc/core/impl/aggregation/core/dp_closed_domain_histogram.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -28,6 +28,7 @@
 #include "tensorflow_federated/cc/core/impl/aggregation/core/agg_vector.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/agg_vector_aggregator.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/datatype.h"
+#include "tensorflow_federated/cc/core/impl/aggregation/core/dp_composite_key_combiner.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/dp_fedsql_constants.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/intrinsic.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/mutable_vector_data.h"
@@ -391,6 +392,27 @@ TEST(DPOpenDomainHistogramTest, CatchInvalidParameterValues) {
               HasSubstr("either a positive delta or an L1 bound"));
 }
 
+// Second batch of tests validate the aggregator itself.
+
+// Make sure we can successfully create a DPClosedDomainHistogram object.
+TEST(DPClosedDomainHistogramTest, CreateAggregator_Success) {
+  Intrinsic intrinsic = CreateIntrinsic<int64_t, int64_t>();
+  auto status = CreateTensorAggregator(intrinsic);
+  TFF_EXPECT_OK(status);
+
+  // Validate the domain tensor: default intrinsic has one key that takes values
+  // in the set {"a", "b", "c"}
+  auto& agg = status.value();
+  auto& dpcdh = dynamic_cast<DPClosedDomainHistogram&>(*agg);
+  TensorSpan domain_tensors = dpcdh.domain_tensors();
+
+  EXPECT_EQ(domain_tensors.size(), 1);
+  EXPECT_EQ(domain_tensors[0].shape(), TensorShape({3}));
+  EXPECT_EQ(domain_tensors[0].dtype(), DT_STRING);
+  EXPECT_EQ(domain_tensors[0].AsSpan<string_view>()[0], "a");
+  EXPECT_EQ(domain_tensors[0].AsSpan<string_view>()[1], "b");
+  EXPECT_EQ(domain_tensors[0].AsSpan<string_view>()[2], "c");
+}
 
 }  // namespace
 }  // namespace aggregation

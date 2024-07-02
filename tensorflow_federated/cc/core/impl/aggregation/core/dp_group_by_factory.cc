@@ -25,6 +25,8 @@
 #include "tensorflow_federated/cc/core/impl/aggregation/base/monitoring.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/agg_core.pb.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/datatype.h"
+#include "tensorflow_federated/cc/core/impl/aggregation/core/dp_closed_domain_histogram.h"
+#include "tensorflow_federated/cc/core/impl/aggregation/core/dp_composite_key_combiner.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/dp_fedsql_constants.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/dp_open_domain_histogram.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/group_by_aggregator.h"
@@ -65,7 +67,7 @@ StatusOr<std::unique_ptr<TensorAggregator>> DPGroupByFactory::CreateInternal(
   constexpr int64_t kL0Index = 2;
   constexpr int kNumOpenDomainParameters = 3;
 
-  // Ensure that the parameters list is valid and retrieve the values if so.
+  // 0. Ensure that the parameters list has a chance of being well-formed.
   if (intrinsic.parameters.size() < kNumOpenDomainParameters) {
     return TFF_STATUS(INVALID_ARGUMENT)
            << "DPGroupByFactory: Expected at least " << kNumOpenDomainParameters
@@ -74,10 +76,13 @@ StatusOr<std::unique_ptr<TensorAggregator>> DPGroupByFactory::CreateInternal(
            << intrinsic.parameters.size() << " of them.";
   }
   bool open_domain = intrinsic.parameters.size() == kNumOpenDomainParameters;
+  int64_t num_keys = intrinsic.inputs.size();
+
+  // 1. For the closed-domain case, ensure that we have the specification for
+  // the domain of each of the keys.
   if (!open_domain) {
     // The number of domain tensors should be one more than the number of
     // grouping keys. The extra one contains the names of the keys (as strings).
-    int64_t num_keys = intrinsic.inputs.size();
     std::vector<DataType> expected_types(num_keys);
     for (auto i = 0; i < num_keys; i++) {
       expected_types[i] = intrinsic.inputs[i].dtype();
@@ -111,6 +116,7 @@ StatusOr<std::unique_ptr<TensorAggregator>> DPGroupByFactory::CreateInternal(
     }
   }
 
+  // 2. For any DP histogram, ensure that we have required DP parameters.
   // Epsilon must be a positive number
   if (internal::GetTypeKind(intrinsic.parameters[kEpsilonIndex].dtype()) !=
       internal::TypeKind::kNumeric) {
@@ -168,6 +174,8 @@ StatusOr<std::unique_ptr<TensorAggregator>> DPGroupByFactory::CreateInternal(
     l0_bound = 1;
   }
 
+  // 3. For any DP histogram, ensure that each inner aggregation is
+  // well-specified.
   // Currently, we only support nested sums.
   // The following check will be updated when this changes.
   for (const auto& intrinsic : intrinsic.nested_intrinsics) {
@@ -260,8 +268,15 @@ StatusOr<std::unique_ptr<TensorAggregator>> DPGroupByFactory::CreateInternal(
         delta_per_agg, l0_bound, num_inputs));
   }
 
-  return TFF_STATUS(UNIMPLEMENTED) << "DPGroupByFactory: Closed-domain DP "
-                                      "histograms are not yet implemented.";
+  // Closed-domain case. We create a data structure containing the domain
+  // spec out of intrinsic.parameters
+  const Tensor* ptr = &(intrinsic.parameters[kNumOpenDomainParameters + 1]);
+  TensorSpan domain_tensors(ptr, num_keys);
+
+  return std::unique_ptr<DPClosedDomainHistogram>(new DPClosedDomainHistogram(
+      intrinsic.inputs, &intrinsic.outputs, &(intrinsic.nested_intrinsics),
+      std::move(key_combiner), std::move(nested_aggregators), epsilon_per_agg,
+      delta_per_agg, l0_bound, domain_tensors, num_inputs));
 }
 
 REGISTER_AGGREGATOR_FACTORY(std::string(kDPGroupByUri), DPGroupByFactory);

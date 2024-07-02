@@ -36,7 +36,6 @@
 #include "tensorflow_federated/cc/core/impl/aggregation/core/mutable_vector_data.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor.pb.h"
-#include "tensorflow_federated/cc/core/impl/aggregation/core/tensor_aggregator.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor_shape.h"
 
 namespace tensorflow_federated {
@@ -190,8 +189,7 @@ StatusOr<Tensor> DPCompositeKeyCombiner::AccumulateWithBound(
 // Retrieve the ordinal associated with the composite key formed by the data in
 // domain_tensors at the given indices (or kNoOrdinal if not found).
 int64_t DPCompositeKeyCombiner::GetOrdinal(
-    const OutputTensorList& domain_tensors,
-    const absl::FixedArray<size_t>& indices) {
+    TensorSpan domain_tensors, const absl::FixedArray<size_t>& indices) {
   size_t expected_num_keys = dtypes().size();
   TFF_CHECK(domain_tensors.size() == expected_num_keys)
       << "DPCompositeKeyCombiner::GetOrdinal: The number of tensors in the "
@@ -210,8 +208,7 @@ int64_t DPCompositeKeyCombiner::GetOrdinal(
 // Populates composite_key with data drawn from domain_tensors. Indices specify
 // which domain elements to copy.
 CompositeKey DPCompositeKeyCombiner::MakeCompositeKeyFromDomainTensors(
-    const OutputTensorList& domain_tensors,
-    const absl::FixedArray<size_t>& indices) {
+    const TensorSpan& domain_tensors, const absl::FixedArray<size_t>& indices) {
   auto data_type_iter = dtypes().begin();
   for (auto& domain_tensor : domain_tensors) {
     // Check that the data types of the input tensors match those provided to

@@ -54,8 +54,6 @@ using ::differential_privacy::NumericalMechanism;
 using ::differential_privacy::sign;
 
 namespace internal {
-// The epsilon beyond which we will not use DP noise
-constexpr double kEpsilonThreshold = 20.0;
 using ::differential_privacy::GaussianMechanism;
 using ::differential_privacy::GaussianPartitionSelection;
 using ::differential_privacy::LaplaceMechanism;
@@ -337,7 +335,7 @@ StatusOr<OutputTensorList> DPOpenDomainHistogram::Report() && {
   OutputTensorList noiseless_aggregate = std::move(*this).TakeOutputs();
 
   // We skip noise addition if epsilon is too large to be meaningful
-  if (epsilon_per_agg_ > internal::kEpsilonThreshold) {
+  if (epsilon_per_agg_ > kEpsilonThreshold) {
     return noiseless_aggregate;
   }
 

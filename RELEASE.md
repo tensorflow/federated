@@ -16,6 +16,8 @@ and this project adheres to
 *   A function to `DPCompositeKeyCombiner` that allows retrieval of an ordinal.
     Intended for use by the closed-domain DP histogram aggregation core.
 *   Constants for invalid ordinals and default `l0_bound_`.
+*   New `DPClosedDomainHistogram` class. Sibling of `DPOpenDomainHistogram` that
+    is constructed from DP parameters plus domain information.
 
 ### Changed
 
@@ -32,6 +34,10 @@ and this project adheres to
 *   `DPGroupByFactory` is now responsible for checking number and type of the
     parameters in the `DPGroupingFederatedSum` intrinsic, since the factory is
     now accessing those parameters.
+*   Type of `domain_tensors` in `DPCompositeKeyCombiner::GetOrdinal` is now
+    `TensorSpan` (alias of `absl::Span<const Tensor>`). This will make it
+    possible to retrieve the slice of `intrinsic.parameters` that contains the
+    domain information and pass it to `DPClosedDomainHistogram`.
 
 ## Release 0.81.0
 
