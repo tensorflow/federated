@@ -32,6 +32,10 @@ and this project adheres to
 *   `DPGroupByFactory` is now responsible for checking number and type of the
     parameters in the `DPGroupingFederatedSum` intrinsic, since the factory is
     now accessing those parameters.
+*   Type of `domain_tensors` in `DPCompositeKeyCombiner::GetOrdinal` is now
+    `TensorSpan` (alias of `absl::Span<const Tensor>`). This will make it
+    possible to retrieve the slice of `intrinsic.parameters` that contains the
+    domain information and pass it to `DPClosedDomainHistogram`.
 
 ## Release 0.81.0
 
