@@ -23,12 +23,12 @@
 
 #include "absl/container/fixed_array.h"
 #include "absl/random/random.h"
+#include "absl/types/span.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/base/monitoring.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/composite_key_combiner.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/input_tensor_list.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor.pb.h"
-#include "tensorflow_federated/cc/core/impl/aggregation/core/tensor_aggregator.h"
 #include "tensorflow_federated/cc/core/impl/aggregation/core/tensor_shape.h"
 
 namespace tensorflow_federated {
@@ -38,6 +38,8 @@ namespace aggregation {
 constexpr int64_t kNoOrdinal = -1;
 // Default l0_bound_ value.
 constexpr int64_t kDefaultL0Bound = -1;
+// Shorthand for a span of Tensors
+using TensorSpan = absl::Span<const Tensor>;
 
 // Child class of CompositeKeyCombiner that enforces contribution bounding
 // inside Accumulate: ensures that the number of unique composite keys that are
@@ -72,23 +74,23 @@ class DPCompositeKeyCombiner : public CompositeKeyCombiner {
   StatusOr<Tensor> AccumulateWithBound(const InputTensorList& tensors,
                                        TensorShape& shape, size_t num_elements);
 
-  // Given a list of tensors (where each describes a key's domain) and indices
+  // Given a span of tensors (where each describes a key's domain) and indices
   // to tensor values, make a CompositeKey out of the data at those indices and
   // then retrieve the ordinal associated with that composite key (or
   // kNoOrdinal).
   // This function will be used within the Report() method of the closed-domain
   // DP histogram aggregation core.
-  int64_t GetOrdinal(const OutputTensorList& domain_tensors,
+  int64_t GetOrdinal(TensorSpan domain_tensors,
                      const absl::FixedArray<size_t>& indices);
 
  private:
   const int64_t l0_bound_;
   absl::BitGen bitgen_;
 
-  // Given a list of tensors (where each describes a key's domain) and indices
+  // Given a span of tensors (where each describes a key's domain) and indices
   // to tensor values, make a CompositeKey out of the data at those indices.
   CompositeKey MakeCompositeKeyFromDomainTensors(
-      const OutputTensorList& domain_tensors,
+      const TensorSpan& domain_tensors,
       const absl::FixedArray<size_t>& indices);
 
   // Friend class that supports the operations done in

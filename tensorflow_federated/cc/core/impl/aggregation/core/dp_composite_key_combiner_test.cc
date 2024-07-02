@@ -438,14 +438,23 @@ TEST(DPCompositeKeyCombinerTest, AccumulateAndGetOrdinal_NumericTypes) {
     StatusOr<Tensor> result =
         combiner.Accumulate(InputTensorList({&t1, &t2, &t3}));
 
-    // Create tensors which describe the domain of each key.
-    OutputTensorList domain_tensors;
-    domain_tensors.push_back(
+    // Create 3 tensors which describe the domain of each key.
+    // An extra tensor has an unused value. This is to show that GetOrdinal can
+    // operate on a slice of intrinsic.parameters (ignore DP parameters).
+    OutputTensorList domain_tensor_list;
+    domain_tensor_list.push_back(
+        Tensor::Create(DT_STRING, {1},
+                       CreateTestData<string_view>({"to be skipped"}))
+            .value());
+    domain_tensor_list.push_back(
         Tensor::Create(DT_FLOAT, {2}, CreateTestData<float>({0, 1.2})).value());
-    domain_tensors.push_back(
+    domain_tensor_list.push_back(
         Tensor::Create(DT_INT32, {1}, CreateTestData<int32_t>({2})).value());
-    domain_tensors.push_back(
+    domain_tensor_list.push_back(
         Tensor::Create(DT_INT64, {1}, CreateTestData<int64_t>({5})).value());
+
+    Tensor* ptr = &(domain_tensor_list[1]);
+    TensorSpan domain_tensors(ptr, 3);
 
     // (0, 2, 5) was never Accumulated
     EXPECT_EQ(combiner.GetOrdinal(domain_tensors, {0, 0, 0}), kNoOrdinal);
@@ -488,16 +497,25 @@ TEST(DPCompositeKeyCombinerTest, AccumulateAndGetOrdinal_StringTypes) {
     StatusOr<Tensor> result =
         combiner.Accumulate(InputTensorList({&t1, &t2, &t3}));
 
-    // Create tensors which describe the domain of each key.
-    OutputTensorList domain_tensors;
-    domain_tensors.push_back(
+    // Create 3 tensors which describe the domain of each key.
+    // An extra tensor has an unused value. This is to show that GetOrdinal can
+    // operate on a slice of intrinsic.parameters (ignore DP parameters).
+    OutputTensorList domain_tensor_list;
+    domain_tensor_list.push_back(
+        Tensor::Create(DT_STRING, {1},
+                       CreateTestData<string_view>({"to be skipped"}))
+            .value());
+    domain_tensor_list.push_back(
         Tensor::Create(DT_FLOAT, {2}, CreateTestData<float>({0, 1.2})).value());
-    domain_tensors.push_back(
+    domain_tensor_list.push_back(
         Tensor::Create(DT_STRING, {1}, CreateTestData<string_view>({"de"}))
             .value());
-    domain_tensors.push_back(
+    domain_tensor_list.push_back(
         Tensor::Create(DT_STRING, {1}, CreateTestData<string_view>({"jklmn"}))
             .value());
+
+    Tensor* ptr = &(domain_tensor_list[1]);
+    TensorSpan domain_tensors(ptr, 3);
 
     // (0, "de", "jklmn") was never Accumulated.
     EXPECT_EQ(combiner.GetOrdinal(domain_tensors, {0, 0, 0}), kNoOrdinal);
